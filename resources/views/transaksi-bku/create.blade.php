@@ -3,7 +3,7 @@
         <div class="page-title">Tambah Transaksi BKU</div>
     </x-slot>
 
-    <div class="max-w-3xl mx-auto">
+    <div class="w-full">
         <div class="card">
             <div class="card-header">
                 <span class="card-title">Form Transaksi Baru</span>
@@ -16,7 +16,11 @@
                 <form method="POST" action="{{ route('transaksi-bku.store') }}">
                     @csrf
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {{-- Section 1: Info Dasar --}}
+                    <div class="mb-2">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Informasi Transaksi</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div>
                             <label for="tanggal" class="form-label">Tanggal</label>
                             <input type="date" name="tanggal" id="tanggal" value="{{ old('tanggal', date('Y-m-d')) }}" class="form-input" required>
@@ -24,17 +28,8 @@
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                             @enderror
                         </div>
-
                         <div>
-                            <label for="no_bukti" class="form-label">No Bukti</label>
-                            <input type="text" name="no_bukti" id="no_bukti" value="{{ old('no_bukti') }}" class="form-input bg-slate-50 text-slate-500" readonly required>
-                            @error('no_bukti')
-                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label for="jenis" class="form-label">Jenis</label>
+                            <label for="jenis" class="form-label">Jenis Transaksi</label>
                             <select name="jenis" id="jenis" class="form-select" required>
                                 <option value="penerimaan" {{ old('jenis') == 'penerimaan' ? 'selected' : '' }}>Penerimaan</option>
                                 <option value="pengeluaran" {{ old('jenis') == 'pengeluaran' ? 'selected' : '' }}>Pengeluaran</option>
@@ -43,14 +38,32 @@
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                             @enderror
                         </div>
+                        <div>
+                            <label for="no_bukti" class="form-label">No Bukti</label>
+                            <input type="text" name="no_bukti" id="no_bukti" value="{{ old('no_bukti') }}" class="form-input bg-slate-50 text-slate-500 font-mono text-sm" readonly required>
+                            @error('no_bukti')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
 
-                        <div id="row_rkas_item">
-                            <label for="rkas_item_id" class="form-label">Item RKAS (Opsional)</label>
+                    {{-- Section 2: Item RKAS --}}
+                    <div id="row_rkas_item">
+                        <div class="mb-2">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Item RKAS</h3>
+                        </div>
+                        <div class="mb-3">
                             <select name="rkas_item_id" id="rkas_item_id" class="form-select">
-                                <option value="" data-tarif="0">Pilih Item RKAS</option>
+                                <option value="" data-tarif="0" data-program="" data-kode="" data-satuan="" data-sisa="">-- Pilih Item RKAS --</option>
                                 @foreach($rkasItems as $item)
-                                    <option value="{{ $item->id }}" data-tarif="{{ $item->tarif }}" {{ old('rkas_item_id') == $item->id ? 'selected' : '' }}>
-                                        {{ $item->no_urut }} - {{ $item->uraian }} (Sisa: {{ number_format($item->sisa, 0, ',', '.') }})
+                                    <option value="{{ $item->id }}"
+                                        data-tarif="{{ $item->tarif }}"
+                                        data-program="{{ $item->program->nama ?? '-' }}"
+                                        data-kode="{{ $item->kodeRekening->kode ?? '-' }}"
+                                        data-satuan="{{ $item->satuan }}"
+                                        data-sisa="{{ $item->sisa }}"
+                                        {{ old('rkas_item_id') == $item->id ? 'selected' : '' }}>
+                                        {{ $item->no_urut }}. {{ $item->uraian }} (Sisa: Rp {{ number_format($item->sisa, 0, ',', '.') }})
                                     </option>
                                 @endforeach
                             </select>
@@ -58,8 +71,30 @@
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                             @enderror
                         </div>
+
+                        <div id="rkas_detail_card" class="hidden mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-xl">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                                <div>
+                                    <span class="text-slate-500 font-medium">Program</span>
+                                    <p class="text-slate-800 font-semibold mt-0.5" id="detail_program">-</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 font-medium">Kode Rekening</span>
+                                    <p class="text-slate-800 font-semibold mt-0.5" id="detail_kode">-</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 font-medium">Tarif / Satuan</span>
+                                    <p class="text-slate-800 font-semibold mt-0.5" id="detail_tarif">-</p>
+                                </div>
+                                <div>
+                                    <span class="text-slate-500 font-medium">Sisa Anggaran</span>
+                                    <p class="text-emerald-700 font-bold mt-0.5" id="detail_sisa">-</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
+                    {{-- Section 3: Kalkulator --}}
                     <div class="my-5 p-4 bg-blue-50 border border-blue-200 rounded-xl" id="row_kalkulator">
                         <label class="block text-sm font-semibold text-blue-800 mb-3">Kalkulator Otomatis</label>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -75,6 +110,10 @@
                         <p class="text-xs text-blue-600 mt-2">Isi <strong>Jumlah Barang</strong> untuk menghitung otomatis nominal <strong>Jumlah</strong> di bawah.</p>
                     </div>
 
+                    {{-- Section 4: Nominal & Rincian --}}
+                    <div class="mb-2">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Nominal & Rincian</h3>
+                    </div>
                     <div class="mb-5">
                         <label for="jumlah" class="form-label">Jumlah Nominal (Rp)</label>
                         <input type="number" name="jumlah" id="jumlah" value="{{ old('jumlah') }}" class="form-input text-lg font-bold" step="0.01" required>
@@ -85,7 +124,7 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div>
-                            <label for="toko_penerima" class="form-label">Toko/Penerima / Sumber Dana</label>
+                            <label for="toko_penerima" class="form-label">Toko / Penerima / Sumber Dana</label>
                             <input type="text" name="toko_penerima" id="toko_penerima" value="{{ old('toko_penerima') }}" class="form-input">
                             @error('toko_penerima')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -106,7 +145,7 @@
 
                     <div class="mb-6">
                         <label for="uraian" class="form-label">Uraian</label>
-                        <textarea name="uraian" id="uraian" rows="3" class="form-input">{{ old('uraian') }}</textarea>
+                        <textarea name="uraian" id="uraian" rows="3" class="form-input" placeholder="Keterangan tambahan (opsional)">{{ old('uraian') }}</textarea>
                         @error('uraian')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
@@ -140,6 +179,12 @@
             const rowKalkulator = document.getElementById('row_kalkulator');
             const rowMetodePengadaan = document.getElementById('row_metode_pengadaan');
 
+            const detailCard = document.getElementById('rkas_detail_card');
+            const detailProgram = document.getElementById('detail_program');
+            const detailKode = document.getElementById('detail_kode');
+            const detailTarif = document.getElementById('detail_tarif');
+            const detailSisa = document.getElementById('detail_sisa');
+
             const npsnCode = "{{ isset($npsn) ? $npsn : '00000000' }}";
             const countPenerimaan = {{ isset($countPenerimaan) ? $countPenerimaan : 1 }};
             const countPengeluaran = {{ isset($countPengeluaran) ? $countPengeluaran : 1 }};
@@ -168,12 +213,31 @@
                     hargaInput.value = '';
                     hargaInput.dataset.val = 0;
                     volumeInput.value = '';
+                    hideDetailCard();
                 } else {
                     rowRkas.style.display = 'block';
                     rowKalkulator.style.display = 'block';
                     rowMetodePengadaan.style.display = 'block';
                 }
                 generateNoBukti();
+            }
+
+            function showDetailCard(opt) {
+                const program = opt.getAttribute('data-program');
+                const kode = opt.getAttribute('data-kode');
+                const tarif = parseFloat(opt.getAttribute('data-tarif')) || 0;
+                const satuan = opt.getAttribute('data-satuan') || '-';
+                const sisa = parseFloat(opt.getAttribute('data-sisa')) || 0;
+                if (!program && !kode) { hideDetailCard(); return; }
+                detailProgram.textContent = program || '-';
+                detailKode.textContent = kode || '-';
+                detailTarif.textContent = tarif > 0 ? 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif) + ' / ' + satuan : '-';
+                detailSisa.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(sisa);
+                detailCard.classList.remove('hidden');
+            }
+
+            function hideDetailCard() {
+                detailCard.classList.add('hidden');
             }
 
             function updateHarga() {
@@ -187,6 +251,11 @@
                     hargaInput.dataset.val = 0;
                 }
                 kalkulasiJumlah();
+                if (selectedOption && selectedOption.value) {
+                    showDetailCard(selectedOption);
+                } else {
+                    hideDetailCard();
+                }
             }
 
             function kalkulasiJumlah() {

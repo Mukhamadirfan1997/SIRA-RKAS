@@ -95,3 +95,18 @@
   - Laporan index (`laporan/index.blade.php`)
   - Import RKAS (`import-rkas/index.blade.php`) — form upload juga disembunyikan
 - **Model**: tambah relationship `importLogs()` ke `TahunAnggaran`
+
+## 15. Fix Dashboard & Form Transaksi
+- **Tren realisasi**: hapus filter `bulan` di `DashboardController` — trend chart selalu tampilkan 12 bulan
+- **Carbon::parse()**: ganti `date('n', strtotime(...))` → `Carbon::parse(...)->month` di `TransaksiBkuController::store()` dan `::update()` + `DashboardController`
+- **Bulan filter integer**: dropdown bulan di `dashboard.blade.php` ubah `sprintf('%02d')` → integer `$m` (supaya query match)
+- **RKAS dropdown compact**: teks `no_urut. uraian (Sisa: Rp X)` — lebih pendek, data attributes untuk program, kode, tarif, satuan, sisa
+- **Detail card RKAS**: grid 4 kolom (Program, Kode Rekening, Tarif/Satuan, Sisa Anggaran) muncul saat item dipilih
+- **Form layout redesign**: section headers (Informasi Transaksi, Item RKAS, Kalkulator Otomatis, Nominal & Rincian), 3-column top row, `font-mono` no_bukti, `text-lg font-bold` jumlah
+- **Eager load**: tambah `->with(['program', 'kodeRekening'])` di `create()` dan `edit()` controller
+
+## 16. Filter Program di Dashboard & RKAS
+- **`RkasController::index`**: tambah filter `program_id` dari request, query `MasterProgram` (level atas), `->where('program_id', ...)` jika dipilih
+- **`rkas/index.blade.php`**: dropdown "Semua Program" di samping dropdown bulan, auto-submit, seleksi tetap tersimpan
+- **`dashboard.blade.php`**: tambah kolom **Program** (kode + nama) di tabel "Daftar Sisa Anggaran (RKAS)"
+- **`DashboardController`**: trend chart & transaksi terkini sekarang pakai `$rkasItems->pluck('id')` — ikut filter program, bulan, kode rekening, jenis belanja (sebelumnya selalu query semua item tanpa filter)

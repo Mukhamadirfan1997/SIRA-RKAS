@@ -226,7 +226,7 @@
                     <select name="bulan" class="form-select">
                         <option value="">Semua Bulan</option>
                         @foreach(range(1, 12) as $m)
-                            <option value="{{ sprintf('%02d', $m) }}" {{ request('bulan') == sprintf('%02d', $m) ? 'selected' : '' }}>
+                            <option value="{{ $m }}" {{ request('bulan') == $m ? 'selected' : '' }}>
                                 {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
                             </option>
                         @endforeach
@@ -277,6 +277,7 @@
                 <thead>
                     <tr>
                         <th>Uraian</th>
+                        <th>Program</th>
                         <th>Kode Rekening</th>
                         <th class="text-right whitespace-nowrap" style="min-width:130px">Rencana</th>
                         <th class="text-right whitespace-nowrap" style="min-width:130px">Realisasi</th>
@@ -290,6 +291,14 @@
                         <td>
                             <div class="font-medium text-slate-800">{{ $item->uraian }}</div>
                             <div class="text-xs text-slate-400">No. {{ $loop->iteration }}</div>
+                        </td>
+                        <td>
+                            @if($item->program)
+                                <div class="font-medium text-slate-700 text-xs">{{ $item->program->kode }}</div>
+                                <div class="text-xs text-slate-400">{{ $item->program->nama }}</div>
+                            @else
+                                <span class="text-slate-300 text-xs">&mdash;</span>
+                            @endif
                         </td>
                         <td>
                             <div class="font-mono text-xs text-slate-600">{{ $item->kodeRekening->kode ?? '-' }}</div>

@@ -16,22 +16,28 @@ class RkasController extends Controller
     public function index(Request $request)
     {
         $bulan = $request->get('bulan', date('n'));
+        $programId = $request->get('program_id');
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $programs = MasterProgram::whereNull('parent_id')->orderBy('kode')->get();
         
         $rkasItems = collect();
         if ($tahunAnggaranAktif) {
-            $rkasItems = TahunAnggaran::find($tahunAnggaranAktif->id)
+            $query = TahunAnggaran::find($tahunAnggaranAktif->id)
                 ->rkasItems()
                 ->with(['program', 'kodeRekening', 'sumberDana', 'bulanRencana' => function($q) use ($bulan) {
                     $q->where('bulan', $bulan);
                 }, 'transaksiBkus' => function($q) {
                     $q->where('jenis', 'pengeluaran');
-                }])
-                ->orderBy('no_urut')
-                ->get();
+                }]);
+
+            if ($programId) {
+                $query->where('program_id', $programId);
+            }
+
+            $rkasItems = $query->orderBy('no_urut')->get();
         }
 
-        return view('rkas.index', compact('rkasItems', 'tahunAnggaranAktif', 'bulan'));
+        return view('rkas.index', compact('rkasItems', 'tahunAnggaranAktif', 'bulan', 'programs', 'programId'));
     }
 
 

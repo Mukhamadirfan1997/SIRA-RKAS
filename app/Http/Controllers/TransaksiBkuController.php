@@ -6,6 +6,7 @@ use App\Models\Kwitansi;
 use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
 use App\Models\TransaksiBku;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -56,7 +57,7 @@ class TransaksiBkuController extends Controller
 
     public function create()
     {
-        $rkasItems = RkasItem::with('bulanRencana')->get();
+        $rkasItems = RkasItem::with('bulanRencana', 'program', 'kodeRekening')->get();
         $profil = auth()->user()->profilSekolah;
         $npsn = $profil ? $profil->npsn : '00000000';
         
@@ -81,7 +82,7 @@ class TransaksiBkuController extends Controller
 
         $validated['created_by'] = auth()->id();
         $validated['sekolah_id'] = auth()->user()->sekolah_id;
-        $validated['bulan'] = (int) date('n', strtotime($validated['tanggal']));
+        $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
 
         // Validasi: Sisa anggaran bulan berjalan (uang cair kumulatif sampai bulan ini - pengeluaran kumulatif)
         if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {
@@ -108,7 +109,7 @@ class TransaksiBkuController extends Controller
 
     public function edit(TransaksiBku $transaksiBku)
     {
-        $rkasItems = RkasItem::all();
+        $rkasItems = RkasItem::with('program', 'kodeRekening')->get();
         return view('transaksi-bku.edit', compact('transaksiBku', 'rkasItems'));
     }
 
@@ -125,7 +126,7 @@ class TransaksiBkuController extends Controller
             'uraian' => 'nullable|string',
         ]);
         
-        $validated['bulan'] = (int) date('n', strtotime($validated['tanggal']));
+        $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
 
         // Validasi: Sisa anggaran bulan berjalan
         if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {

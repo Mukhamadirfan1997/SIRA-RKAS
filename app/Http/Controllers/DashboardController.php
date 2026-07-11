@@ -107,11 +107,8 @@ class DashboardController extends Controller
             $realisasiPerBulan[$i] = 0;
         }
         if ($tahunAnggaranAktif) {
-            $rkasItemIds = RkasItem::where('tahun_anggaran_id', $tahunAnggaranAktif->id)->pluck('id');
-            $transaksiUser = TransaksiBku::whereIn('rkas_item_id', $rkasItemIds)->where('jenis', 'pengeluaran');
-            if ($request->filled('bulan')) {
-                $transaksiUser->where('bulan', $request->bulan);
-            }
+            $filteredIds = $rkasItems->pluck('id')->values();
+            $transaksiUser = TransaksiBku::whereIn('rkas_item_id', $filteredIds)->where('jenis', 'pengeluaran');
             $byBulan = $transaksiUser->selectRaw('bulan, sum(jumlah) as total')
                         ->groupBy('bulan')
                         ->pluck('total', 'bulan');
@@ -128,16 +125,16 @@ class DashboardController extends Controller
         $recentTransaksi = collect();
         $transaksiBulanIni = 0;
         if ($tahunAnggaranAktif) {
-            $rkasItemIds = RkasItem::where('tahun_anggaran_id', $tahunAnggaranAktif->id)->pluck('id');
+            $filteredIds = $rkasItems->pluck('id')->values();
             $recentTransaksi = TransaksiBku::with(['rkasItem.program', 'rkasItem.kodeRekening'])
-                ->whereIn('rkas_item_id', $rkasItemIds)
+                ->whereIn('rkas_item_id', $filteredIds)
                 ->where('jenis', 'pengeluaran')
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get();
 
-            $transaksiBulanIni = TransaksiBku::whereIn('rkas_item_id', $rkasItemIds)
-                ->where('bulan', (int) date('n'))
+            $transaksiBulanIni = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                ->where('bulan', (int) Carbon::now()->month)
                 ->count();
         }
 
