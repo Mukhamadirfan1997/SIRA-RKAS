@@ -23,11 +23,11 @@
         .font-bold { font-weight:700; }
         .summary { margin-top:20px; padding:12px; background:#f0f4ff; border-radius:6px; border:1px solid #bfdbfe; }
         .summary p { margin-bottom:4px; font-size:10px; }
-        .tanda-tangan { margin-top:40px; }
+        .tanda-tangan { margin-top:50px; }
         .tanda-tangan table { border:none; }
         .tanda-tangan td { border:none !important; width:50%; text-align:center; vertical-align:top; padding:10px 20px; }
         .tanda-tangan .label { font-size:10px; color:#64748b; margin-bottom:5px; }
-        .tanda-tangan .nama { font-size:12px; font-weight:700; color:#1e293b; margin-top:40px; border-top:1px solid #1e293b; padding-top:5px; display:inline-block; min-width:150px; }
+        .tanda-tangan .nama { font-size:12px; font-weight:700; color:#1e293b; margin-top:60px; border-top:1px solid #1e293b; padding-top:5px; display:inline-block; min-width:150px; }
         .tanda-tangan .nip { font-size:9px; color:#64748b; margin-top:2px; }
         .footer-note { margin-top:20px; text-align:center; font-size:8px; color:#94a3b8; border-top:1px solid #e2e8f0; padding-top:8px; }
     </style>
@@ -95,15 +95,13 @@
     <table style="width:100%;border-collapse:collapse;border:none !important;margin-top:30px;">
         <tr>
             <td style="border:none !important;width:45%;text-align:center;vertical-align:top;padding:0 10px;">
-                <div class="label">Mengetahui,</div>
-                <div class="label">Kepala Sekolah</div>
+                <div style="font-size:10px;height:75px;line-height:1.4;">Mengetahui,<br>Kepala Sekolah</div>
                 <div class="nama">{{ $profil->nama_kepsek ?? '-' }}</div>
                 <div class="nip">NIP. {{ $profil->nip_kepsek ?? '-' }}</div>
             </td>
-            <td style="border:none !important;width:10%"></td>
+            <td style="border:none !important;width:10%;"></td>
             <td style="border:none !important;width:45%;text-align:center;vertical-align:top;padding:0 10px;">
-                <div class="label">{{ $periodeLabel }} {{ $tahunAnggaranAktif->tahun ?? date('Y') }}</div>
-                <div class="label">Bendahara</div>
+                <div style="font-size:10px;height:75px;line-height:1.4;">{{ $profil->kecamatan ?? '' }}, {{ $tanggalCetak }}<br><strong>Bendahara</strong></div>
                 <div class="nama">{{ $profil->nama_bendahara ?? '-' }}</div>
                 <div class="nip">NIP. {{ $profil->nip_bendahara ?? '-' }}</div>
             </td>
