@@ -223,10 +223,10 @@ class LaporanController extends Controller
 
         if ($request->get('cetak') == 'pdf') {
             $namaSekolah = $data['profil'] ? preg_replace('/[^a-zA-Z0-9]/', '_', $data['profil']->nama) : 'sekolah';
-            $bulanLabel = $data['bulan'] ? \Carbon\Carbon::create()->month($data['bulan'])->translatedFormat('F') : '';
+            $slug = str_replace([' ', '–'], ['_', '-'], $data['periodeLabel']);
             $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-siplah', $data)->setPaper('a4', 'landscape');
-            return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $bulanLabel . '_' . $tahunLabel . '.pdf');
+            return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $slug . '_' . $tahunLabel . '.pdf');
         }
 
         return view('laporan.rekap-siplah', $data);
@@ -240,12 +240,13 @@ class LaporanController extends Controller
 
     public function rekapSiplahExportExcel(Request $request)
     {
-        $bulan = (int) $request->get('bulan', date('n'));
+        $resolved = $this->resolveSiplahPeriode($request);
         $profil = auth()->user()->profilSekolah;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
+        $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
         return Excel::download(
-            new RekapSiplahExport($bulan),
-            'rekap-siplah-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+            new RekapSiplahExport($resolved['months'], null, $resolved['label']),
+            'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx'
         );
     }
 
@@ -261,10 +262,10 @@ class LaporanController extends Controller
             $data['tanggalCetak'] = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
                 ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
                 : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-            $bulanLabel = $data['bulan'] ? \Carbon\Carbon::create()->month($data['bulan'])->translatedFormat('F') : '';
+            $slug = str_replace([' ', '–'], ['_', '-'], $data['periodeLabel']);
             $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-siplah', $data)->setPaper('a4', 'landscape');
-            return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $bulanLabel . '_' . $tahunLabel . '.pdf');
+            return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $slug . '_' . $tahunLabel . '.pdf');
         }
 
         return view('laporan.rekap-siplah-web', $data);
@@ -272,17 +273,58 @@ class LaporanController extends Controller
 
     public function adminRekapSiplahExportExcel(Request $request, ProfilSekolah $sekolah)
     {
-        $bulan = (int) $request->get('bulan', date('n'));
+        $resolved = $this->resolveSiplahPeriode($request);
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
+        $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
         return Excel::download(
-            new RekapSiplahExport($bulan, $sekolah->id),
-            'rekap-siplah-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+            new RekapSiplahExport($resolved['months'], $sekolah->id, $resolved['label']),
+            'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx'
         );
+    }
+
+    private function resolveSiplahPeriode(Request $request): array
+    {
+        $periode = $request->get('periode', '');
+        $bulanParam = (int) $request->get('bulan', 0);
+
+        if ($periode === 'h1') {
+            return ['months' => [1,2,3,4,5,6], 'label' => 'Januari – Juni'];
+        } elseif ($periode === 'h2') {
+            return ['months' => [7,8,9,10,11,12], 'label' => 'Juli – Desember'];
+        } elseif ($periode === 'all') {
+            return ['months' => range(1, 12), 'label' => 'Seluruh Tahun'];
+        } elseif ($bulanParam >= 1 && $bulanParam <= 12) {
+            $label = \Carbon\Carbon::create()->month($bulanParam)->translatedFormat('F');
+            return ['months' => [$bulanParam], 'label' => $label];
+        }
+        $currentMonth = (int) date('n');
+        return ['months' => [$currentMonth], 'label' => \Carbon\Carbon::create()->month($currentMonth)->translatedFormat('F')];
     }
 
     private function prepareRekapSiplahData(Request $request, ?ProfilSekolah $profilOverride = null): array
     {
-        $bulan = (int) $request->get('bulan', date('n'));
+        $periode = $request->get('periode', '');
+        $bulanParam = (int) $request->get('bulan', 0);
+
+        if ($periode === 'h1') {
+            $months = [1,2,3,4,5,6];
+            $periodeLabel = 'Januari – Juni';
+        } elseif ($periode === 'h2') {
+            $months = [7,8,9,10,11,12];
+            $periodeLabel = 'Juli – Desember';
+        } elseif ($periode === 'all') {
+            $months = range(1, 12);
+            $periodeLabel = 'Seluruh Tahun';
+        } elseif ($bulanParam >= 1 && $bulanParam <= 12) {
+            $months = [$bulanParam];
+            $periodeLabel = \Carbon\Carbon::create()->month($bulanParam)->translatedFormat('F');
+        } else {
+            $currentMonth = (int) date('n');
+            $months = [$currentMonth];
+            $periodeLabel = \Carbon\Carbon::create()->month($currentMonth)->translatedFormat('F');
+        }
+
+        $bulan = $months[0];
         $rawTanggal = $request->get('tanggal_cetak', '');
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
@@ -292,7 +334,7 @@ class LaporanController extends Controller
 
         $query = TransaksiBku::with('rkasItem.kodeRekening.jenisBelanja')
             ->where('jenis', 'pengeluaran')
-            ->where('bulan', $bulan);
+            ->whereIn('bulan', $months);
 
         if ($profilOverride) {
             $query->withoutGlobalScope('sekolah')->where('sekolah_id', $profilOverride->id);
@@ -328,7 +370,7 @@ class LaporanController extends Controller
         return compact(
             'bulan', 'profil', 'tahunAnggaranAktif', 'tanggalCetak',
             'totalPengeluaran', 'totalSiplah', 'totalNonSiplah', 'totalBelumDiisi',
-            'persenSiplah', 'persenNonSiplah', 'breakdown'
+            'persenSiplah', 'persenNonSiplah', 'breakdown', 'periodeLabel', 'months'
         );
     }
 

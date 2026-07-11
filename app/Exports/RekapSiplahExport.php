@@ -11,20 +11,22 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 {
-    protected int $bulan;
+    protected array $months;
     protected ?int $sekolahId;
+    protected string $periodeLabel;
 
-    public function __construct(int $bulan, ?int $sekolahId = null)
+    public function __construct(array $months, ?int $sekolahId = null, string $periodeLabel = '')
     {
-        $this->bulan = $bulan;
+        $this->months = $months;
         $this->sekolahId = $sekolahId;
+        $this->periodeLabel = $periodeLabel;
     }
 
     public function collection()
     {
         $query = TransaksiBku::with('rkasItem.kodeRekening.jenisBelanja')
             ->where('jenis', 'pengeluaran')
-            ->where('bulan', $this->bulan);
+            ->whereIn('bulan', $this->months);
 
         if ($this->sekolahId) {
             $query->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId);
@@ -85,6 +87,6 @@ class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, With
 
     public function title(): string
     {
-        return 'Rekap SIPLAH ' . \Carbon\Carbon::create()->month($this->bulan)->translatedFormat('F');
+        return 'Rekap SIPLAH ' . ($this->periodeLabel ?: 'Periode');
     }
 }

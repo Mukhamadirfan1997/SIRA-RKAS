@@ -15,14 +15,17 @@
             <div class="card-body" style="padding:20px 24px;">
                 <div class="flex items-end gap-4 flex-wrap">
                     <div>
-                        <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Bulan</label>
+                        <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Periode</label>
                         <form id="filter-form" class="flex items-end gap-2">
-                            <select id="bulan-select" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:180px;" onchange="applyFilter()">
+                            <select id="periode-select" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:200px;" onchange="applyFilter()">
                                 @foreach(range(1,12) as $m)
-                                    <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
+                                    <option value="{{ $m }}" {{ count($months) == 1 && $months[0] == $m ? 'selected' : '' }}>
                                         {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
                                     </option>
                                 @endforeach
+                                <option value="h1" {{ $months == [1,2,3,4,5,6] ? 'selected' : '' }}>Januari – Juni</option>
+                                <option value="h2" {{ $months == [7,8,9,10,11,12] ? 'selected' : '' }}>Juli – Desember</option>
+                                <option value="all" {{ count($months) == 12 ? 'selected' : '' }}>Seluruh Tahun</option>
                             </select>
                             <input type="hidden" name="tanggal_cetak" id="tanggal-cetak" value="{{ $tanggalCetak ?? date('Y-m-d') }}">
                         </form>
@@ -37,6 +40,11 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             Export Excel
                         </button>
+                        <a href="{{ $isAdmin ? route('dashboard.kecamatan') : route('laporan.index') }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all ml-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                            Kembali
+                        </a>
                     </div>
                 </div>
             </div>
@@ -53,7 +61,7 @@
                     </div>
                     <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Total Pengeluaran</p>
                     <p class="text-3xl font-extrabold text-slate-800 mt-3">Rp {{ number_format($totalPengeluaran, 0, ',', '.') }}</p>
-                    <p class="text-sm text-slate-400 mt-2">{{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }}</p>
+                    <p class="text-sm text-slate-400 mt-2">{{ $periodeLabel }} {{ $tahunAnggaranAktif->tahun ?? date('Y') }}</p>
                 </div>
             </div>
 
@@ -176,7 +184,7 @@
                 @else
                 <div class="text-center py-16 text-slate-400">
                     <svg class="w-16 h-16 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                    <p class="text-sm">Belum ada data pengeluaran pada bulan ini.</p>
+                    <p class="text-sm">Belum ada data pengeluaran pada periode ini.</p>
                 </div>
                 @endif
             </div>
@@ -235,32 +243,37 @@
         });
         @endif
 
+        function buildPeriodeParam() {
+            var val = document.getElementById('periode-select').value;
+            if (val === 'h1' || val === 'h2' || val === 'all') {
+                return 'periode=' + val;
+            }
+            return 'bulan=' + val;
+        }
+
         function applyFilter() {
-            var bulan = document.getElementById('bulan-select').value;
             @if($isAdmin)
-                window.location.href = '{{ url("laporan") }}/{{ $adminSekolahId }}/rekap-siplah?bulan=' + bulan;
+                window.location.href = '{{ url("laporan") }}/{{ $adminSekolahId }}/rekap-siplah?' + buildPeriodeParam();
             @else
-                window.location.href = '{{ route("laporan.rekap-siplah.preview") }}?bulan=' + bulan;
+                window.location.href = '{{ route("laporan.rekap-siplah.preview") }}?' + buildPeriodeParam();
             @endif
         }
 
         function cetakPdf() {
-            var bulan = document.getElementById('bulan-select').value;
             var tgl = document.getElementById('tanggal-cetak').value;
             @if($isAdmin)
-                var url = '{{ route("admin.laporan.rekap-siplah", ["sekolah" => $adminSekolahId]) }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+                var url = '{{ route("admin.laporan.rekap-siplah", ["sekolah" => $adminSekolahId]) }}?' + buildPeriodeParam() + '&cetak=pdf&tanggal_cetak=' + tgl;
             @else
-                var url = '{{ route("laporan.rekap-siplah") }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+                var url = '{{ route("laporan.rekap-siplah") }}?' + buildPeriodeParam() + '&cetak=pdf&tanggal_cetak=' + tgl;
             @endif
             window.open(url, '_blank');
         }
 
         function exportExcel() {
-            var bulan = document.getElementById('bulan-select').value;
             @if($isAdmin)
-                window.location.href = '{{ route("admin.laporan.rekap-siplah.export-excel", ["sekolah" => $adminSekolahId]) }}?bulan=' + bulan;
+                window.location.href = '{{ route("admin.laporan.rekap-siplah.export-excel", ["sekolah" => $adminSekolahId]) }}?' + buildPeriodeParam();
             @else
-                window.location.href = '{{ route("laporan.rekap-siplah.export-excel") }}?bulan=' + bulan;
+                window.location.href = '{{ route("laporan.rekap-siplah.export-excel") }}?' + buildPeriodeParam();
             @endif
         }
     </script>

@@ -37,7 +37,7 @@
     <div class="header">
         <h1>REKAP PENGADAAN SIPLAH</h1>
         <h2>{{ $profil->nama ?? '-' }} — NPSN: {{ $profil->npsn ?? '-' }}</h2>
-        <p>Periode: {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }} &nbsp;|&nbsp; Tanggal Cetak: {{ $tanggalCetak ?? date('d F Y') }}</p>
+        <p>Periode: {{ $periodeLabel }} {{ $tahunAnggaranAktif->tahun ?? date('Y') }} &nbsp;|&nbsp; Tanggal Cetak: {{ $tanggalCetak ?? date('d F Y') }}</p>
     </div>
 
     {{-- Ringkasan --}}
@@ -87,7 +87,7 @@
     </table>
     @else
     <div style="text-align:center;padding:40px;color:#94a3b8;">
-        Belum ada data pengeluaran pada bulan ini.
+        Belum ada data pengeluaran pada periode ini.
     </div>
     @endif
 
@@ -102,7 +102,7 @@
             </td>
             <td style="border:none !important;width:10%"></td>
             <td style="border:none !important;width:45%;text-align:center;vertical-align:top;padding:0 10px;">
-                <div class="label">{{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }}</div>
+                <div class="label">{{ $periodeLabel }} {{ $tahunAnggaranAktif->tahun ?? date('Y') }}</div>
                 <div class="label">Bendahara</div>
                 <div class="nama">{{ $profil->nama_bendahara ?? '-' }}</div>
                 <div class="nip">NIP. {{ $profil->nip_bendahara ?? '-' }}</div>
