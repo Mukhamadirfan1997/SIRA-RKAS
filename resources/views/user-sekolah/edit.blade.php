@@ -1,0 +1,112 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="page-title">Edit User: {{ $user->name }}</div>
+    </x-slot>
+
+    <div class="max-w-2xl mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Form Edit User</span>
+                <a href="{{ route('user-sekolah.index') }}" class="btn btn-secondary btn-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    Kembali
+                </a>
+            </div>
+            <div class="card-body">
+                @if($errors->any())
+                    <div class="alert-error mb-6">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <ul class="list-disc list-inside text-sm">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <form action="{{ route('user-sekolah.update', $user) }}" method="POST" id="userForm">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="mb-5">
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" name="name" value="{{ old('name', $user->name) }}" required class="form-input">
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label">Email (untuk Login)</label>
+                        <input type="email" name="email" value="{{ old('email', $user->email) }}" required class="form-input">
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label">Password Baru <span class="text-slate-400 text-xs font-normal">(Kosongkan jika tidak diubah)</span></label>
+                        <input type="password" name="password" class="form-input">
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label">Konfirmasi Password Baru</label>
+                        <input type="password" name="password_confirmation" class="form-input">
+                    </div>
+
+                    <div class="mb-5">
+                        <label class="form-label">Role / Hak Akses</label>
+                        <select name="role" id="roleSelect" required onchange="handleRoleChange()" class="form-select">
+                            <option value="sekolah" {{ $user->hasRole('sekolah') ? 'selected' : '' }}>Sekolah (Bendahara/Kepsek)</option>
+                            <option value="admin-kecamatan" {{ $user->hasRole('admin-kecamatan') ? 'selected' : '' }}>Admin Kecamatan</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-5" id="sekolahField">
+                        <label class="form-label">
+                            Terkait Sekolah <span id="sekolahRequired" class="text-red-500">*</span>
+                        </label>
+                        <select name="sekolah_id" id="sekolahSelect" class="form-select">
+                            <option value="">-- Pilih Sekolah --</option>
+                            @foreach($sekolahs as $sekolah)
+                                <option value="{{ $sekolah->id }}" {{ $user->sekolah_id == $sekolah->id ? 'selected' : '' }}>
+                                    {{ $sekolah->nama }} ({{ $sekolah->npsn }})
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('sekolah_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        <p class="mt-1 text-xs text-slate-400" id="sekolahHint">Wajib diisi jika role Sekolah.</p>
+                    </div>
+
+                    <div class="mb-6 flex items-center gap-3">
+                        <input type="checkbox" name="is_active" id="is_active" value="1" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" {{ $user->is_active ? 'checked' : '' }}>
+                        <label for="is_active" class="text-sm font-medium text-slate-700">Akun Aktif (bisa login ke sistem)</label>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-4 border-t border-slate-100">
+                        <a href="{{ route('user-sekolah.index') }}" class="btn btn-secondary">Batal</a>
+                        <button type="submit" class="btn-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            Update
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function handleRoleChange() {
+            const role = document.getElementById('roleSelect').value;
+            const sekolahField = document.getElementById('sekolahField');
+            const sekolahSelect = document.getElementById('sekolahSelect');
+            const hint = document.getElementById('sekolahHint');
+
+            if (role === 'admin-kecamatan') {
+                sekolahField.style.opacity = '0.4';
+                sekolahSelect.disabled = true;
+                sekolahSelect.value = '';
+                hint.textContent = 'Admin Kecamatan tidak perlu terkait sekolah.';
+            } else {
+                sekolahField.style.opacity = '1';
+                sekolahSelect.disabled = false;
+                hint.textContent = 'Wajib diisi jika role Sekolah.';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', handleRoleChange);
+    </script>
+</x-app-layout>

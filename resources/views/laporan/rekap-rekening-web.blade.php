@@ -1,0 +1,137 @@
+<x-app-layout>
+    @php
+        $isAdmin = $isAdmin ?? false;
+        $sid = $adminSekolahId ?? null;
+    @endphp
+    <x-slot name="header">
+        <div class="page-title">Rekap Realisasi Anggaran{{ $isAdmin && $profil ? ' — ' . $profil->nama : '' }}</div>
+    </x-slot>
+
+    <div class="card mb-6 border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
+        <div class="h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
+        <div class="card-body" style="padding:20px 24px;">
+            <form method="GET" action="{{ $isAdmin ? route('admin.laporan.rekap-rekening', ['sekolah' => $sid]) : route('laporan.rekap-rekening.preview') }}" class="flex items-end gap-4 flex-wrap">
+                <div class="flex-1 min-w-[180px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Bulan</label>
+                    <select name="bulan" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
+                        @foreach(range(1, 12) as $m)
+                            <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="min-w-[180px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Tanggal Cetak</label>
+                    <input type="date" id="tanggal-cetak" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" class="form-input" style="border-radius:10px;border-color:#e2e8f0;padding:8px 12px;">
+                </div>
+                <div class="flex gap-2 items-center">
+                    <button type="button" onclick="cetakPdf()" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 shadow-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                        Cetak PDF
+                    </button>
+                    <a href="{{ $isAdmin ? route('admin.laporan.rekap-rekening.export-excel', ['sekolah' => $sid, 'bulan' => $bulan]) : route('laporan.rekap-rekening.export-excel', ['bulan' => $bulan]) }}"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Excel
+                    </a>
+                    <a href="{{ route('laporan.index') }}"
+                       class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all ml-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                        Kembali
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
+        <div class="card-header" style="border-bottom:1px solid #f1f5f9;padding:16px 24px;background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);">
+            <span class="card-title" style="font-size:14px;">Rekap Realisasi — {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width:5%">No</th>
+                        <th style="width:15%">Kode Rekening</th>
+                        <th style="width:35%">Uraian Anggaran</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Anggaran (Rencana)</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Realisasi (GSP)</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Sisa Anggaran</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @php
+                        $grandTotalRencana = 0;
+                        $grandTotalRealisasi = 0;
+                        $grandTotalSisa = 0;
+                        $i = 1;
+                    @endphp
+                    @forelse($grouped as $jenisBelanja => $items)
+                        <tr style="background:linear-gradient(135deg,#f0f4ff 0%,#e8f0fe 100%);">
+                            <td colspan="6" class="font-bold text-blue-800 text-sm">{{ $jenisBelanja }}</td>
+                        </tr>
+
+                        @php
+                            $subRencana = $items->sum('rencana_bulan');
+                            $subRealisasi = $items->sum('realisasi_bulan');
+                            $subSisa = $items->sum('sisa_bulan');
+                            $grandTotalRencana += $subRencana;
+                            $grandTotalRealisasi += $subRealisasi;
+                            $grandTotalSisa += $subSisa;
+                        @endphp
+
+                        @foreach($items as $item)
+                            <tr>
+                                <td class="text-center">{{ $i++ }}</td>
+                                <td style="font-family:monospace">{{ $item->kodeRekening?->kode ?? '-' }}</td>
+                                <td>{{ $item->uraian }}</td>
+                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->rencana_bulan, 0, ',', '.') }}</td>
+                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->realisasi_bulan, 0, ',', '.') }}</td>
+                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->sisa_bulan, 0, ',', '.') }}</td>
+                            </tr>
+                        @endforeach
+
+                        <tr style="background:#f8fafc;">
+                            <td colspan="3" class="text-right font-semibold text-sm text-slate-600">SUBTOTAL {{ strtoupper($jenisBelanja) }}</td>
+                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subRencana, 0, ',', '.') }}</td>
+                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subRealisasi, 0, ',', '.') }}</td>
+                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subSisa, 0, ',', '.') }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="text-center py-12 text-slate-400">
+                                <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                Belum ada data anggaran.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+                @if($grouped->count() > 0)
+                    <tfoot>
+                        <tr style="background:linear-gradient(135deg,#1e3a5f 0%,#1e40af 100%);">
+                            <td colspan="3" class="text-right font-bold text-white">TOTAL KESELURUHAN</td>
+                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRencana, 0, ',', '.') }}</td>
+                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRealisasi, 0, ',', '.') }}</td>
+                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalSisa, 0, ',', '.') }}</td>
+                        </tr>
+                    </tfoot>
+                @endif
+            </table>
+        </div>
+    </div>
+
+    <script>
+    function cetakPdf() {
+        var tgl = document.getElementById('tanggal-cetak').value;
+        var bulan = {{ $bulan }};
+        @if($isAdmin)
+            var url = '{{ route("admin.laporan.rekap-rekening", ["sekolah" => $sid]) }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+        @else
+            var url = '{{ route("laporan.rekap-rekening") }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+        @endif
+        window.open(url, '_blank');
+    }
+    </script>
+</x-app-layout>

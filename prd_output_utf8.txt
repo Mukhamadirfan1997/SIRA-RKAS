@@ -1,0 +1,31 @@
+=== Daftar Sheet ===
+[0] KODE REKENING
+[1] KEGIATAN
+
+Active Sheet: KODE REKENING
+Max Row: 277
+Max Col: B
+
+--- Header Row 1 ---
+A: [Kode Barang]
+B: [Rincian Objek]
+
+--- Sample Row 2 ---
+A: [5.1.02.01.01.0001]
+B: [Belanja Bahan-Bahan Bangunan dan Konstruksi]
+
+Active Sheet: KEGIATAN
+Max Row: 142
+Max Col: D
+
+--- Header Row 1 ---
+A: [Kode Kegiatan]
+B: [Program]
+C: [Sub Program]
+D: [Uraian]
+
+--- Sample Row 2 ---
+A: [02.02.01.]
+B: [Pengembangan Standar Isi]
+C: [Pengembangan Perpustakaan]
+D: [Kegiatan pemberdayaan perpustakaan terutama untuk pengembangan minat baca peserta didik]

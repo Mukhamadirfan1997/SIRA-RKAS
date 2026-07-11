@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Imports;
+
+use App\Models\MasterKodeRekening;
+use App\Models\JenisBelanja;
+use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithStartRow;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+
+class MasterKodeRekeningImport implements WithMultipleSheets
+{
+    public function sheets(): array
+    {
+        return [
+            0 => new class implements ToModel, WithHeadingRow {
+                
+                private $rules = [
+                    '5.1.02.01' => 'Belanja Barang Persediaan',
+                    '5.1.02.02' => 'Belanja Jasa',
+                    '5.1.02.03' => 'Belanja Jasa Pemeliharaan',
+                    '5.1.02.04' => 'Belanja Perjalanan Dinas',
+                    '5.2.02.10' => 'Belanja Modal Peralatan & Mesin',
+                    '5.2.05'    => 'Belanja Modal Buku',
+                    '5.2.02.05' => 'Belanja Modal Aset Tetap Lainnya',
+                    '5.2'       => 'Belanja Modal Peralatan & Mesin',
+                    '5.1'       => 'Belanja Lainnya',
+                ];
+
+                private $jenisMapCache = [];
+
+                public function model(array $row)
+                {
+                    $kode = $row['kode_barang'];
+                    $namaJenis = 'Belanja Lainnya'; // Fallback default
+                    
+                    // Cek aturan berdasarkan prefix
+                    foreach ($this->rules as $prefix => $jenisTujuan) {
+                        if (str_starts_with($kode, $prefix)) {
+                            $namaJenis = $jenisTujuan;
+                            break;
+                        }
+                    }
+
+                    // Ambil/buat jenis belanja dari database (di cache agar cepat)
+                    if (!isset($this->jenisMapCache[$namaJenis])) {
+                        $jenisObj = JenisBelanja::firstOrCreate(['nama' => $namaJenis]);
+                        $this->jenisMapCache[$namaJenis] = $jenisObj->id;
+                    }
+
+                    return new MasterKodeRekening([
+                        'kode' => $kode,
+                        'nama' => $row['rincian_objek'],
+                        'jenis_belanja_id' => $this->jenisMapCache[$namaJenis],
+                    ]);
+                }
+            }
+        ];
+    }
+}
