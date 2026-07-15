@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Kwitansi;
 use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
+use App\Models\SumberDana;
+use App\Models\TahunAnggaran;
 use App\Models\TransaksiBku;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -15,27 +17,55 @@ class TransaksiBkuController extends Controller
 {
     public function index(Request $request)
     {
-        $bulan = $request->input('bulan', ''); // '' = semua bulan
-        
+        $bulan = $request->input('bulan', date('n'));
+        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
+
+        $tahunInput = $request->input('tahun');
+        if ($tahunInput) {
+            $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
+            if ($tahunRecord) {
+                $tahunAnggaranAktif = $tahunRecord;
+            }
+        }
+        $sumberDanas = SumberDana::orderBy('kode')->get();
+        $sumberDanaId = $request->input('sumber_dana_id');
+
         $query = TransaksiBku::with('rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja')
-                              ->orderBy('tanggal')
-                              ->orderBy('id');
+            ->where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            ->orderBy('tanggal')
+            ->orderBy('id');
 
         if ($bulan !== '') {
             $query->where('bulan', (int) $bulan);
         }
 
-        $transaksis = $query->get();
+        if ($sumberDanaId) {
+            $query->where('sumber_dana_id', $sumberDanaId);
+        }
 
-        // Hitung saldo berjalan dari awal (semua data, lalu potong ke filter)
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('no_bukti', 'LIKE', "%{$search}%")
+                  ->orWhere('uraian', 'LIKE', "%{$search}%")
+                  ->orWhere('toko_penerima', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $transaksis = $query->paginate(50);
+
         $saldoAwal = 0;
         if ($bulan !== '') {
-            // Hitung saldo kumulatif sebelum bulan yang difilter
-            $sebelumnya = TransaksiBku::where('bulan', '<', (int) $bulan)
-                                       ->orderBy('tanggal')->orderBy('id')->get();
-            foreach ($sebelumnya as $t) {
-                $saldoAwal += strtolower($t->jenis) == 'penerimaan' ? $t->jumlah : -$t->jumlah;
-            }
+            $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+                ->where('bulan', '<', (int) $bulan)
+                ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+                ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
+                ->value('saldo') ?? 0;
+        } else {
+            $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+                ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+                ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
+                ->value('saldo') ?? 0;
         }
 
         $saldo = $saldoAwal;
@@ -44,27 +74,48 @@ class TransaksiBkuController extends Controller
             $transaksi->saldo_berjalan = $saldo;
         }
 
-        $belumMetodePengadaan = TransaksiBku::where('jenis', 'pengeluaran')
+        $bulanQuery = $bulan !== '' ? (int) $bulan : null;
+        $totalPenerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            ->when($bulanQuery, fn($q) => $q->where('bulan', $bulanQuery))
+            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+            ->where('jenis', 'penerimaan')->sum('jumlah');
+        $totalPengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            ->when($bulanQuery, fn($q) => $q->where('bulan', $bulanQuery))
+            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+            ->where('jenis', 'pengeluaran')->sum('jumlah');
+        $saldoAkhir = $totalPenerimaan - $totalPengeluaran;
+
+        $belumMetodePengadaan = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+            ->where('jenis', 'pengeluaran')
             ->whereNull('metode_pengadaan')
             ->count();
 
-        $belumCetakKwitansi = TransaksiBku::where('jenis', 'pengeluaran')
+        $belumCetakKwitansi = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
+            ->where('jenis', 'pengeluaran')
             ->whereDoesntHave('kwitansi')
             ->count();
 
-        return view('transaksi-bku.index', compact('transaksis', 'bulan', 'belumMetodePengadaan', 'belumCetakKwitansi'));
+        return view('transaksi-bku.index', compact(
+            'transaksis', 'bulan', 'totalPenerimaan', 'totalPengeluaran', 'saldoAkhir',
+            'belumMetodePengadaan', 'belumCetakKwitansi', 'tahunAnggaranAktif', 'tahunList',
+            'sumberDanas', 'sumberDanaId'
+        ));
     }
 
     public function create()
     {
-        $rkasItems = RkasItem::with('bulanRencana', 'program', 'kodeRekening')->get();
         $profil = auth()->user()->profilSekolah;
         $npsn = $profil ? $profil->npsn : '00000000';
-        
-        $countPenerimaan = TransaksiBku::where('jenis', 'penerimaan')->count() + 1;
-        $countPengeluaran = TransaksiBku::where('jenis', 'pengeluaran')->count() + 1;
-        
-        return view('transaksi-bku.create', compact('rkasItems', 'npsn', 'countPenerimaan', 'countPengeluaran'));
+        $tahunAnggaranId = TahunAnggaran::where('status', true)->value('id');
+
+        $countPenerimaan = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranId)
+            ->where('jenis', 'penerimaan')->count() + 1;
+        $countPengeluaran = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranId)
+            ->where('jenis', 'pengeluaran')->count() + 1;
+
+        return view('transaksi-bku.create', compact('npsn', 'countPenerimaan', 'countPengeluaran'));
     }
 
     public function store(Request $request)
@@ -83,6 +134,12 @@ class TransaksiBkuController extends Controller
         $validated['created_by'] = auth()->id();
         $validated['sekolah_id'] = auth()->user()->sekolah_id;
         $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
+        $validated['tahun_anggaran_id'] = TahunAnggaran::where('status', true)->value('id');
+
+        if ($validated['rkas_item_id']) {
+            $rkasItem = RkasItem::find($validated['rkas_item_id']);
+            $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
+        }
 
         // Validasi: Sisa anggaran bulan berjalan (uang cair kumulatif sampai bulan ini - pengeluaran kumulatif)
         if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {
@@ -109,8 +166,8 @@ class TransaksiBkuController extends Controller
 
     public function edit(TransaksiBku $transaksiBku)
     {
-        $rkasItems = RkasItem::with('program', 'kodeRekening')->get();
-        return view('transaksi-bku.edit', compact('transaksiBku', 'rkasItems'));
+        $transaksiBku->load('rkasItem.program', 'rkasItem.kodeRekening');
+        return view('transaksi-bku.edit', compact('transaksiBku'));
     }
 
     public function update(Request $request, TransaksiBku $transaksiBku)
@@ -127,6 +184,12 @@ class TransaksiBkuController extends Controller
         ]);
         
         $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
+        $validated['tahun_anggaran_id'] = TahunAnggaran::where('status', true)->value('id');
+
+        if ($validated['rkas_item_id']) {
+            $rkasItem = RkasItem::find($validated['rkas_item_id']);
+            $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
+        }
 
         // Validasi: Sisa anggaran bulan berjalan
         if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {

@@ -53,5 +53,8 @@
                 </tbody>
             </table>
         </div>
+        <div class="p-4 border-t border-slate-200">
+            {{ $kecamatans->links() }}
+        </div>
     </div>
 </x-app-layout>

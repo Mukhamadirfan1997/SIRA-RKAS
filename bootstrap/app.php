@@ -22,7 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO |
             \Illuminate\Http\Request::HEADER_X_FORWARDED_AWS_ELB);
         $middleware->validateCsrfTokens(except: [
-            '*',
+            'import-rkas',
+            'master-program/import',
+            'master-kode-rekening/import',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

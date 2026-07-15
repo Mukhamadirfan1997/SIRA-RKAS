@@ -30,14 +30,14 @@
         </div>
     @endif
 
-    @if($rkasItems->count() > 0)
+    @if($totalJumlah > 0)
         <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mb-6">
             <div class="stat-card indigo">
                 <div class="stat-icon bg-indigo-50">
                     <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 </div>
                 <div class="stat-label">Total Item</div>
-                <div class="stat-value text-indigo-700">{{ $rkasItems->count() }}</div>
+                <div class="stat-value text-indigo-700">{{ number_format($rkasItems->total()) }}</div>
             </div>
 
             <div class="stat-card green">
@@ -45,7 +45,7 @@
                     <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
                 <div class="stat-label">Total Rencana</div>
-                <div class="stat-value text-emerald-700">Rp {{ number_format($rkasItems->sum('jumlah'), 0, ',', '.') }}</div>
+                <div class="stat-value text-emerald-700">Rp {{ number_format($totalJumlah, 0, ',', '.') }}</div>
             </div>
 
             <div class="stat-card blue">
@@ -53,7 +53,7 @@
                     <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
                 </div>
                 <div class="stat-label">Total Realisasi</div>
-                <div class="stat-value text-blue-700">Rp {{ number_format($rkasItems->sum('realisasi'), 0, ',', '.') }}</div>
+                <div class="stat-value text-blue-700">Rp {{ number_format($totalRealisasi, 0, ',', '.') }}</div>
             </div>
 
             <div class="stat-card orange">
@@ -61,7 +61,7 @@
                     <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 </div>
                 <div class="stat-label">Belum Lengkap</div>
-                <div class="stat-value text-amber-700">{{ $rkasItems->filter(fn($item) => !$item->program_id || !$item->kode_rekening_id)->count() }}</div>
+                <div class="stat-value text-amber-700">{{ number_format($belumLengkapCount) }}</div>
             </div>
         </div>
     @endif
@@ -71,6 +71,10 @@
             <span class="card-title">Daftar RKAS</span>
             <div class="flex flex-wrap items-center gap-3">
                 <form method="GET" action="{{ route('rkas.index') }}" class="flex items-center gap-3">
+                    <input type="text" name="search" class="form-input text-sm py-1.5" placeholder="Cari uraian..." value="{{ request('search') }}">
+                    @if(request('search'))
+                        <a href="{{ route('rkas.index') }}" class="btn btn-ghost btn-sm">Reset</a>
+                    @endif
                     <select name="bulan" class="form-select py-1.5 text-sm" onchange="this.form.submit()">
                         @foreach(range(1, 12) as $m)
                             <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
@@ -86,6 +90,31 @@
                             </option>
                         @endforeach
                     </select>
+                    <select name="tahun" class="form-select py-1.5 text-sm" onchange="this.form.submit()">
+                        @foreach($tahunList as $t)
+                            <option value="{{ $t->tahun }}" {{ request('tahun', $tahunAnggaranAktif->tahun ?? '') == $t->tahun ? 'selected' : '' }}>
+                                {{ $t->tahun }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <select name="sumber_dana_id" class="form-select py-1.5 text-sm" onchange="this.form.submit()" style="min-width:160px">
+                        <option value="">Semua Sumber Dana</option>
+                        @foreach($sumberDanaList as $sd)
+                            <option value="{{ $sd->id }}" {{ request('sumber_dana_id', $sumberDanaId ?? '') == $sd->id ? 'selected' : '' }}>
+                                {{ $sd->kode }} - {{ $sd->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @if($isAdmin)
+                        <select name="sekolah_id" class="form-select py-1.5 text-sm" onchange="this.form.submit()" style="min-width:180px">
+                            <option value="">Semua Sekolah</option>
+                            @foreach($sekolahs as $s)
+                                <option value="{{ $s->id }}" {{ request('sekolah_id') == $s->id ? 'selected' : '' }}>
+                                    {{ $s->nama }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @endif
                 </form>
                 <a href="{{ route('import-rkas.index') }}" class="btn-primary">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -100,6 +129,7 @@
                     <thead>
                         <tr>
                             <th class="w-10">No</th>
+                            @if($isAdmin)<th class="w-28">Sekolah</th>@endif
                             <th class="w-1/4">Uraian</th>
                             <th class="w-24">Program</th>
                             <th class="w-28">Kode Rekening</th>
@@ -124,6 +154,15 @@
                             @endphp
                             <tr class="{{ $isLengkap ? '' : 'bg-amber-50/50' }}">
                                 <td class="font-semibold text-slate-700">{{ $loop->iteration }}</td>
+                                @if($isAdmin)
+                                    <td class="text-xs text-slate-600">
+                                        @if($item->sekolah)
+                                            {{ $item->sekolah->nama }}
+                                        @else
+                                            <span class="text-slate-300">&mdash;</span>
+                                        @endif
+                                    </td>
+                                @endif
                                 <td>
                                     <div class="font-medium text-slate-800">{{ $item->uraian }}</div>
                                     @if(!$isLengkap)
@@ -190,6 +229,9 @@
                         @endforeach
                     </tbody>
                 </table>
+                <div class="px-4 py-3 border-t border-slate-100">
+                    {{ $rkasItems->links() }}
+                </div>
             @else
                 <div class="text-center py-12 text-slate-400">
                     <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>

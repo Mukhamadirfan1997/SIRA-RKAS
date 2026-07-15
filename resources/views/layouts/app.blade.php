@@ -12,8 +12,32 @@
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </head>
     <body class="font-sans antialiased bg-slate-50">
+
+        <div id="page-loader" class="fixed inset-0 z-50 flex items-center justify-center bg-white/80 transition-opacity duration-300" style="display:none">
+            <div class="flex flex-col items-center gap-3">
+                <svg class="animate-spin h-8 w-8 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="text-sm text-slate-500 font-medium">Memuat...</span>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() { document.getElementById('page-loader').style.display = 'flex'; });
+            window.addEventListener('load', function() {
+                var el = document.getElementById('page-loader');
+                el.style.opacity = '0';
+                setTimeout(function() { el.style.display = 'none'; }, 300);
+            });
+        </script>
 
         @include('layouts.navigation')
 

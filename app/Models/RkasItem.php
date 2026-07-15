@@ -57,6 +57,11 @@ class RkasItem extends Model
         return $this->belongsTo(SumberDana::class, 'sumber_dana_id');
     }
 
+    public function sekolah(): BelongsTo
+    {
+        return $this->belongsTo(ProfilSekolah::class, 'sekolah_id');
+    }
+
     public function transaksiBkus(): HasMany
     {
         return $this->hasMany(TransaksiBku::class);

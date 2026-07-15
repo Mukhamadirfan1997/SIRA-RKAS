@@ -57,8 +57,8 @@
                     <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-sm">
                         <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     </div>
-                    <h3 class="text-base font-bold text-slate-800 mb-1">Rekap Kuartal</h3>
-                    <p class="text-xs text-slate-500 leading-relaxed">Rekap realisasi per kuartal (3 bulan)</p>
+                    <h3 class="text-base font-bold text-slate-800 mb-1">Rekap Tribulan</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Rekap realisasi per tribulan (3 bulan)</p>
                 </div>
             </div>
 
@@ -86,11 +86,13 @@
                     }
                     var type = card.getAttribute('data-type');
                     var bulan = new Date().getMonth() + 1;
+                    var tahun = '{{ $tahunAnggaranAktif?->tahun ?? date("Y") }}';
+                    var sd = '{{ request("sumber_dana_id") }}';
                     var urls = {
-                        'bku': '{{ url("laporan") }}/' + sekolahId + '/bku?bulan=' + bulan,
-                        'rekap': '{{ url("laporan") }}/' + sekolahId + '/rekap-rekening?bulan=' + bulan,
-                        'kuartal': '{{ url("laporan") }}/' + sekolahId + '/rekap-kuartal?bulan=' + bulan,
-                        'siplah': '{{ url("laporan") }}/' + sekolahId + '/rekap-siplah?bulan=' + bulan
+                        'bku': '{{ url("laporan") }}/' + sekolahId + '/bku?bulan=' + bulan + '&tahun=' + tahun + (sd ? '&sumber_dana_id=' + sd : ''),
+                        'rekap': '{{ url("laporan") }}/' + sekolahId + '/rekap-rekening?bulan=' + bulan + '&tahun=' + tahun + (sd ? '&sumber_dana_id=' + sd : ''),
+                        'kuartal': '{{ url("laporan") }}/' + sekolahId + '/rekap-kuartal?bulan=' + bulan + '&tahun=' + tahun + (sd ? '&sumber_dana_id=' + sd : ''),
+                        'siplah': '{{ url("laporan") }}/' + sekolahId + '/rekap-siplah?bulan=' + bulan + '&tahun=' + tahun + (sd ? '&sumber_dana_id=' + sd : '')
                     };
                     window.location.href = urls[type];
                 });
@@ -98,7 +100,7 @@
         </script>
     @else
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <a href="{{ route('laporan.bku.preview', ['bulan' => date('n')]) }}"
+            <a href="{{ route('laporan.bku.preview', ['bulan' => date('n'), 'tahun' => ($tahunAnggaranAktif?->tahun ?? date('Y')), 'sumber_dana_id' => request('sumber_dana_id')]) }}"
                class="group block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all duration-300 overflow-hidden">
                 <div class="h-2 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
                 <div class="p-6 text-center">
@@ -110,7 +112,7 @@
                 </div>
             </a>
 
-            <a href="{{ route('laporan.rekap-rekening.preview', ['bulan' => date('n')]) }}"
+            <a href="{{ route('laporan.rekap-rekening.preview', ['bulan' => date('n'), 'tahun' => ($tahunAnggaranAktif?->tahun ?? date('Y')), 'sumber_dana_id' => request('sumber_dana_id')]) }}"
                class="group block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-300 transition-all duration-300 overflow-hidden">
                 <div class="h-2 bg-gradient-to-r from-blue-400 to-blue-600"></div>
                 <div class="p-6 text-center">
@@ -122,19 +124,19 @@
                 </div>
             </a>
 
-            <a href="{{ route('laporan.rekap-kuartal.preview', ['bulan' => date('n')]) }}"
+            <a href="{{ route('laporan.rekap-kuartal.preview', ['bulan' => date('n'), 'tahun' => ($tahunAnggaranAktif?->tahun ?? date('Y')), 'sumber_dana_id' => request('sumber_dana_id')]) }}"
                class="group block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300 overflow-hidden">
                 <div class="h-2 bg-gradient-to-r from-amber-400 to-amber-600"></div>
                 <div class="p-6 text-center">
                     <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-sm">
                         <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     </div>
-                    <h3 class="text-base font-bold text-slate-800 mb-1">Rekap Kuartal</h3>
-                    <p class="text-xs text-slate-500 leading-relaxed">Rekap realisasi per kuartal (3 bulan)</p>
+                    <h3 class="text-base font-bold text-slate-800 mb-1">Rekap Tribulan</h3>
+                    <p class="text-xs text-slate-500 leading-relaxed">Rekap realisasi per tribulan (3 bulan)</p>
                 </div>
             </a>
 
-            <a href="{{ route('laporan.rekap-siplah.preview', ['bulan' => date('n')]) }}"
+            <a href="{{ route('laporan.rekap-siplah.preview', ['bulan' => date('n'), 'tahun' => ($tahunAnggaranAktif?->tahun ?? date('Y')), 'sumber_dana_id' => request('sumber_dana_id')]) }}"
                class="group block bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-violet-300 transition-all duration-300 overflow-hidden">
                 <div class="h-2 bg-gradient-to-r from-violet-400 to-violet-600"></div>
                 <div class="p-6 text-center">

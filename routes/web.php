@@ -14,6 +14,7 @@ use App\Http\Controllers\KecamatanController;
 use App\Http\Controllers\ProfilSekolahController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\UserSekolahController;
+use App\Http\Controllers\RkasItemController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -27,6 +28,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
+
+    Route::get('rkas-items/select2', [RkasItemController::class, 'select2'])->name('rkas-items.select2');
 
     // -- Admin Kecamatan Routes --
     Route::middleware(['role:admin-kecamatan'])->group(function() {

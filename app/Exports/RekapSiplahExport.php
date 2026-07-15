@@ -14,47 +14,57 @@ class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, With
     protected array $months;
     protected ?int $sekolahId;
     protected string $periodeLabel;
+    protected ?int $tahunAnggaranId;
+    protected ?int $sumberDanaId;
 
-    public function __construct(array $months, ?int $sekolahId = null, string $periodeLabel = '')
+    public function __construct(array $months, ?int $sekolahId = null, string $periodeLabel = '', ?int $tahunAnggaranId = null, ?int $sumberDanaId = null)
     {
         $this->months = $months;
         $this->sekolahId = $sekolahId;
         $this->periodeLabel = $periodeLabel;
+        $this->tahunAnggaranId = $tahunAnggaranId ?? \App\Models\TahunAnggaran::where('status', true)->value('id');
+        $this->sumberDanaId = $sumberDanaId;
     }
 
     public function collection()
     {
-        $query = TransaksiBku::with('rkasItem.kodeRekening.jenisBelanja')
+        $query = TransaksiBku::where('transaksi_bku.tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('jenis', 'pengeluaran')
-            ->whereIn('bulan', $this->months);
+            ->whereIn('bulan', $this->months)
+            ->when($this->sumberDanaId, fn($q) => $q->where('transaksi_bku.sumber_dana_id', $this->sumberDanaId));
 
         if ($this->sekolahId) {
             $query->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId);
         }
 
-        $transaksis = $query->get();
-
-        $grouped = $transaksis->groupBy(function ($t) {
-            return $t->rkasItem?->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori';
-        });
-
-        $rows = collect();
-        foreach ($grouped as $jenisBelanja => $items) {
-            $total = $items->sum('jumlah');
-            $siplah = $items->where('metode_pengadaan', 'siplah')->sum('jumlah');
-            $nonSiplah = $items->where('metode_pengadaan', 'non_siplah')->sum('jumlah');
-            $belumDiisi = $total - $siplah - $nonSiplah;
-
-            $rows->push((object) [
-                'jenis_belanja' => $jenisBelanja,
-                'total' => $total,
-                'siplah' => $siplah,
-                'non_siplah' => $nonSiplah,
-                'belum_diisi' => $belumDiisi,
-                'persen_siplah' => $total > 0 ? round(($siplah / $total) * 100, 1) : 0,
-                'persen_non_siplah' => $total > 0 ? round(($nonSiplah / $total) * 100, 1) : 0,
-            ]);
-        }
+        $rows = $query
+            ->join('rkas_item', 'rkas_item.id', '=', 'transaksi_bku.rkas_item_id')
+            ->join('master_kode_rekening', 'master_kode_rekening.id', '=', 'rkas_item.kode_rekening_id')
+            ->join('jenis_belanja', 'jenis_belanja.id', '=', 'master_kode_rekening.jenis_belanja_id')
+            ->selectRaw("
+                COALESCE(jenis_belanja.nama, 'Tidak Terkategori') as jenis_belanja,
+                COALESCE(SUM(transaksi_bku.jumlah), 0) as total,
+                COALESCE(SUM(CASE WHEN transaksi_bku.metode_pengadaan = 'siplah' THEN transaksi_bku.jumlah ELSE 0 END), 0) as siplah,
+                COALESCE(SUM(CASE WHEN transaksi_bku.metode_pengadaan = 'non_siplah' THEN transaksi_bku.jumlah ELSE 0 END), 0) as non_siplah
+            ")
+            ->groupBy('jenis_belanja.nama')
+            ->orderBy('jenis_belanja.nama')
+            ->get()
+            ->map(function ($row) {
+                $total = (float) $row->total;
+                $siplah = (float) $row->siplah;
+                $nonSiplah = (float) $row->non_siplah;
+                $belumDiisi = $total - $siplah - $nonSiplah;
+                return (object) [
+                    'jenis_belanja' => $row->jenis_belanja,
+                    'total' => $total,
+                    'siplah' => $siplah,
+                    'non_siplah' => $nonSiplah,
+                    'belum_diisi' => max(0, $belumDiisi),
+                    'persen_siplah' => $total > 0 ? round(($siplah / $total) * 100, 1) : 0,
+                    'persen_non_siplah' => $total > 0 ? round(($nonSiplah / $total) * 100, 1) : 0,
+                ];
+            });
 
         return $rows;
     }

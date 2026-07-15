@@ -9,7 +9,7 @@ class SumberDanaController extends Controller
 {
     public function index()
     {
-        $sumberDanas = SumberDana::all();
+        $sumberDanas = SumberDana::paginate(50);
         return view('sumber-dana.index', compact('sumberDanas'));
     }
 

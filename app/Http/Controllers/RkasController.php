@@ -3,13 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Imports\RkasImport;
+use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
 use App\Models\TahunAnggaran;
+use App\Models\SumberDana;
 use App\Models\MasterProgram;
 use App\Models\MasterKodeRekening;
-use App\Models\SumberDana;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\DB;
 
 class RkasController extends Controller
 {
@@ -18,29 +20,80 @@ class RkasController extends Controller
         $bulan = $request->get('bulan', date('n'));
         $programId = $request->get('program_id');
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
-        $programs = MasterProgram::whereNull('parent_id')->orderBy('kode')->get();
-        
-        $rkasItems = collect();
-        if ($tahunAnggaranAktif) {
-            $query = TahunAnggaran::find($tahunAnggaranAktif->id)
-                ->rkasItems()
-                ->with(['program', 'kodeRekening', 'sumberDana', 'bulanRencana' => function($q) use ($bulan) {
-                    $q->where('bulan', $bulan);
-                }, 'transaksiBkus' => function($q) {
-                    $q->where('jenis', 'pengeluaran');
-                }]);
-
-            if ($programId) {
-                $query->where('program_id', $programId);
+        $tahunInput = $request->get('tahun');
+        if ($tahunInput) {
+            $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
+            if ($tahunRecord) {
+                $tahunAnggaranAktif = $tahunRecord;
             }
-
-            $rkasItems = $query->orderBy('no_urut')->get();
+        }
+        $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
+        $sumberDanaList = SumberDana::orderBy('kode')->get();
+        $sumberDanaId = request('sumber_dana_id');
+        $programs = MasterProgram::whereNull('parent_id')->orderBy('kode')->get();
+        $isAdmin = auth()->user()->isAdminKecamatan();
+        $sekolahs = collect();
+        $sekolahId = null;
+        if ($isAdmin) {
+            $sekolahs = ProfilSekolah::orderBy('nama')->get();
+            $sekolahId = $request->input('sekolah_id');
         }
 
-        return view('rkas.index', compact('rkasItems', 'tahunAnggaranAktif', 'bulan', 'programs', 'programId'));
+        $totalJumlah = 0;
+        $totalRealisasi = 0;
+        $belumLengkapCount = 0;
+        $rkasItems = collect();
+
+        if ($tahunAnggaranAktif) {
+            $baseQuery = TahunAnggaran::find($tahunAnggaranAktif->id)->rkasItems();
+
+            if ($programId) {
+                $baseQuery->where('program_id', $programId);
+            }
+
+            if ($search = $request->get('search')) {
+                $baseQuery->where('uraian', 'LIKE', "%{$search}%");
+            }
+
+            if ($sumberDanaId) {
+                $baseQuery->where('sumber_dana_id', $sumberDanaId);
+            }
+
+            if ($sekolahId) {
+                $baseQuery->withoutGlobalScope('sekolah')->where('sekolah_id', $sekolahId);
+            }
+
+            $filteredIds = fn() => (clone $baseQuery)->select('id');
+
+            $totalJumlah = RkasItem::whereIn('id', $filteredIds())->sum('jumlah');
+
+            $totalRealisasi = \App\Models\TransaksiBku::joinSub($filteredIds(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
+                ->where('transaksi_bku.jenis', 'pengeluaran')
+                ->sum('transaksi_bku.jumlah');
+
+            $belumLengkapCount = RkasItem::whereIn('id', $filteredIds())
+                ->where(function ($q) {
+                    $q->whereNull('program_id')
+                      ->orWhereNull('kode_rekening_id');
+                })
+                ->count();
+
+            $rkasItems = $baseQuery
+                ->with(['program', 'kodeRekening', 'sumberDana', 'sekolah', 'bulanRencana' => function ($q) use ($bulan) {
+                    $q->where('bulan', $bulan);
+                }, 'transaksiBkus' => function ($q) {
+                    $q->where('jenis', 'pengeluaran');
+                }])
+                ->orderBy('no_urut')
+                ->paginate(50);
+        }
+
+        return view('rkas.index', compact(
+            'rkasItems', 'tahunAnggaranAktif', 'tahunList', 'bulan', 'programs', 'programId',
+            'totalJumlah', 'totalRealisasi', 'belumLengkapCount',
+            'sumberDanaList', 'sumberDanaId', 'isAdmin', 'sekolahs', 'sekolahId'
+        ));
     }
-
-
 
     public function edit(RkasItem $rkasItem)
     {

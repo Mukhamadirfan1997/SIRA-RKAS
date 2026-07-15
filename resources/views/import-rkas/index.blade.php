@@ -68,6 +68,13 @@
             <div class="card-header">
                 <span class="card-title">Riwayat Import Terakhir</span>
             </div>
+            <div id="import-processing-bar" class="hidden items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200 text-sm text-amber-700">
+                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Import sedang diproses...</span>
+            </div>
             <div class="card-body flex flex-col" id="riwayat-container">
                 @if($logs->count() > 0)
                     <div class="space-y-4 flex-1 overflow-y-auto max-h-96">
@@ -110,37 +117,65 @@
     </div>
 
     <script>
-        const polling = () => {
+        var pollTimeout = null;
+
+        function renderLog(log) {
+            var statusClass = log.status === 'failed' ? 'bg-red-50 border-red-200' : (log.status === 'success' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200');
+            var badgeClass = log.status === 'failed' ? 'badge-red' : (log.status === 'success' ? 'badge-green' : 'badge-yellow');
+            var month = new Date(0, log.bulan - 1).toLocaleString('id', { month: 'long' });
+            var date = log.created_at ? new Date(log.created_at).toLocaleString('id', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            var errors = log.error_detail ? log.error_detail.map(function(e) { return '<div>' + e + '</div>'; }).join('') : '';
+            var progressBar = '';
+            if (log.status === 'processing' && log.total_baris > 0) {
+                var pct = Math.round((log.baris_berhasil || 0) / log.total_baris * 100);
+                progressBar = '<div class="mt-2 w-full bg-slate-200 rounded-full h-1.5"><div class="bg-amber-500 h-1.5 rounded-full transition-all" style="width:' + pct + '%"></div></div>';
+            }
+            return '<div class="p-4 rounded-xl border ' + statusClass + '">' +
+                '<div class="flex justify-between items-center mb-2">' +
+                    '<span class="font-semibold text-sm ' + (log.status === 'failed' ? 'text-red-700' : (log.status === 'success' ? 'text-emerald-700' : 'text-amber-700')) + '">' + month + '</span>' +
+                    '<span class="text-xs font-mono text-slate-500">' + date + '</span>' +
+                '</div>' +
+                '<div class="flex items-center gap-2">' +
+                    '<span class="badge ' + badgeClass + '">' + log.status.toUpperCase() + '</span>' +
+                    ((log.baris_berhasil || 0) > 0 || (log.total_baris || 0) > 0 ? '<span class="text-xs text-slate-600 bg-white px-3 py-1 rounded-lg border border-slate-200">' + (log.baris_berhasil || 0) + '/' + (log.total_baris || 0) + ' Baris</span>' : '') +
+                '</div>' +
+                progressBar +
+                (errors ? '<div class="mt-3 text-xs text-red-600 bg-white p-3 rounded-lg border border-red-100 max-h-24 overflow-y-auto">' + errors + '</div>' : '') +
+            '</div>';
+        }
+
+        function polling() {
             fetch('{{ route('import-rkas.status') }}')
-                .then(r => r.json())
-                .then(logs => {
-                    let hasProcessing = false;
-                    const container = document.getElementById('riwayat-container');
+                .then(function(r) { return r.json(); })
+                .then(function(logs) {
+                    var hasProcessing = false;
+                    var processingBar = document.getElementById('import-processing-bar');
+                    var container = document.getElementById('riwayat-container');
                     if (container && logs.length > 0) {
-                        container.innerHTML = logs.map(log => {
+                        container.innerHTML = logs.map(function(log) {
                             if (log.status === 'processing') hasProcessing = true;
-                            const statusClass = log.status === 'failed' ? 'bg-red-50 border-red-200' : (log.status === 'success' ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200');
-                            const badgeClass = log.status === 'failed' ? 'badge-red' : (log.status === 'success' ? 'badge-green' : 'badge-yellow');
-                            const month = new Date(0, log.bulan - 1).toLocaleString('id', { month: 'long' });
-                            const date = log.created_at ? new Date(log.created_at).toLocaleString('id', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                            const errors = log.error_detail ? log.error_detail.map(e => `<div>${e}</div>`).join('') : '';
-                            return `<div class="p-4 rounded-xl border ${statusClass}">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="font-semibold text-sm ${log.status === 'failed' ? 'text-red-700' : (log.status === 'success' ? 'text-emerald-700' : 'text-amber-700')}">${month}</span>
-                                    <span class="text-xs font-mono text-slate-500">${date}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <span class="badge ${badgeClass}">${log.status.toUpperCase()}</span>
-                                    ${(log.baris_berhasil || 0) > 0 || (log.total_baris || 0) > 0 ? `<span class="text-xs text-slate-600 bg-white px-3 py-1 rounded-lg border border-slate-200">${log.baris_berhasil || 0}/${log.total_baris || 0} Baris</span>` : ''}
-                                </div>
-                                ${errors ? `<div class="mt-3 text-xs text-red-600 bg-white p-3 rounded-lg border border-red-100 max-h-24 overflow-y-auto">${errors}</div>` : ''}
-                            </div>`;
+                            return renderLog(log);
                         }).join('');
                     }
-                    if (hasProcessing) setTimeout(polling, 5000);
+                    if (processingBar) {
+                        processingBar.style.display = hasProcessing ? 'flex' : 'none';
+                    }
+                    if (hasProcessing) {
+                        pollTimeout = setTimeout(polling, 5000);
+                    }
                 })
-                .catch(() => setTimeout(polling, 5000));
-        };
-        document.addEventListener('DOMContentLoaded', polling);
+                .catch(function() {
+                    pollTimeout = setTimeout(polling, 5000);
+                });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var processingBar = document.getElementById('import-processing-bar');
+            var container = document.getElementById('riwayat-container');
+            if (container && container.querySelector('.badge-yellow')) {
+                if (processingBar) processingBar.style.display = 'flex';
+                pollTimeout = setTimeout(polling, 5000);
+            }
+        });
     </script>
 </x-app-layout>

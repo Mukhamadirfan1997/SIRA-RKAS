@@ -39,6 +39,13 @@
         <div class="card-header">
             <span class="card-title">Daftar Master Program</span>
             <div class="flex items-center gap-2">
+                <form method="GET" class="flex gap-2">
+                    <input type="text" name="search" class="form-input text-sm" placeholder="Cari nama/kode..." value="{{ request('search') }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">Cari</button>
+                    @if(request('search'))
+                        <a href="{{ route('master-program.index') }}" class="btn btn-ghost btn-sm">Reset</a>
+                    @endif
+                </form>
                 <form action="{{ route('master-program.import') }}" method="POST" enctype="multipart/form-data" class="flex gap-2">
                     @csrf
                     <input type="file" name="file" class="form-input text-sm max-w-xs" accept=".xlsx,.xls,.csv" required>
@@ -95,6 +102,9 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+        <div class="p-4 border-t border-slate-200">
+            {{ $masterPrograms->links() }}
         </div>
     </div>
 </x-app-layout>

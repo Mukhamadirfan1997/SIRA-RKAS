@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rekap Kuartal {{ $qLabel }}</title>
+    <title>Rekap Tribulan {{ $qLabel }}</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: Arial, sans-serif; font-size: 10px; color: #111; background: white; }
@@ -36,7 +36,7 @@
         <div class="alamat">{{ $profil?->alamat ?? '' }}</div>
         <div class="judul">Rekap Realisasi Anggaran Per Kode Rekening</div>
         <div class="sub-judul">
-            {{ $qLabel }} ({{ $periodeLabel }}) &nbsp;|&nbsp;
+            {{ $periodeLabel }} &nbsp;|&nbsp;
             Tahun Anggaran: {{ $tahunAnggaranAktif?->tahun ?? '-' }}
         </div>
     </div>
@@ -50,7 +50,7 @@
                 @foreach($bulanNames as $name)
                     <th style="width: 14%" class="text-right">{{ $name }}</th>
                 @endforeach
-                <th style="width: 14%" class="text-right">Total {{ $qLabel }}</th>
+                <th style="width: 14%" class="text-right">Total</th>
             </tr>
         </thead>
         <tbody>
@@ -126,10 +126,10 @@
         <button onclick="window.print()" style="background:#1e3a5f;color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px">
             🖨️ Cetak
         </button>
-        <a href="{{ route('laporan.rekap-kuartal', ['bulan' => $bulan, 'cetak' => 'pdf']) }}" style="background:#15803d;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
+        <a href="{{ route('laporan.rekap-kuartal', ['bulan' => $bulan, 'cetak' => 'pdf', 'tahun' => ($tahunAnggaranAktif->tahun ?? date('Y'))]) }}" style="background:#15803d;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
             📄 PDF
         </a>
-        <a href="{{ route('laporan.rekap-kuartal.export-excel', ['bulan' => $bulan]) }}" style="background:#0d6efd;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
+        <a href="{{ route('laporan.rekap-kuartal.export-excel', ['bulan' => $bulan, 'tahun' => ($tahunAnggaranAktif->tahun ?? date('Y'))]) }}" style="background:#0d6efd;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
             📊 Excel
         </a>
         <button onclick="window.close()" style="background:#6b7280;color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px">

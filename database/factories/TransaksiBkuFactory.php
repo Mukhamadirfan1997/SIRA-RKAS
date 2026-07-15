@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
+use App\Models\TahunAnggaran;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TransaksiBkuFactory extends Factory
@@ -13,6 +14,7 @@ class TransaksiBkuFactory extends Factory
         $jenis = fake()->randomElement(['penerimaan', 'pengeluaran']);
         return [
             'sekolah_id' => ProfilSekolah::factory(),
+            'tahun_anggaran_id' => TahunAnggaran::factory(),
             'rkas_item_id' => RkasItem::factory(),
             'tanggal' => fake()->date(),
             'bulan' => fake()->numberBetween(1, 12),

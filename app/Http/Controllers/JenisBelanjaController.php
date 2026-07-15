@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\JenisBelanja;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class JenisBelanjaController extends Controller
 {
     public function index()
     {
-        $jenisBelanjas = JenisBelanja::all();
+        $jenisBelanjas = JenisBelanja::paginate(50);
         return view('jenis-belanja.index', compact('jenisBelanjas'));
     }
 
@@ -25,6 +26,8 @@ class JenisBelanjaController extends Controller
         ]);
 
         JenisBelanja::create($validated);
+
+        Cache::forget('jenis_belanjas');
 
         return redirect()->route('jenis-belanja.index')->with('success', 'Jenis Belanja berhasil ditambahkan.');
     }
@@ -42,12 +45,15 @@ class JenisBelanjaController extends Controller
 
         $jenisBelanja->update($validated);
 
+        Cache::forget('jenis_belanjas');
+
         return redirect()->route('jenis-belanja.index')->with('success', 'Jenis Belanja berhasil diupdate.');
     }
 
     public function destroy(JenisBelanja $jenisBelanja)
     {
         $jenisBelanja->delete();
+        Cache::forget('jenis_belanjas');
         return back()->with('success', 'Jenis Belanja berhasil dihapus.');
     }
 }

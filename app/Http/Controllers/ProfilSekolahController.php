@@ -8,9 +8,18 @@ use Illuminate\Http\Request;
 
 class ProfilSekolahController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $profils = ProfilSekolah::with('kecamatanRef')->get();
+        $query = ProfilSekolah::with('kecamatanRef');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'LIKE', "%{$search}%")
+                  ->orWhere('npsn', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $profils = $query->paginate(50);
         return view('profil-sekolah.index', compact('profils'));
     }
 

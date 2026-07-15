@@ -10,3 +10,10 @@ Artisan::command('inspire', function () {
 
 Schedule::command('backup:clean')->daily()->at('01:00');
 Schedule::command('backup:run')->daily()->at('01:30');
+Schedule::command('audit:clean 90')->weekly()->sundays()->at('02:00');
+Schedule::call(function () {
+    \Illuminate\Support\Facades\DB::table('failed_jobs')
+        ->where('failed_at', '<', now()->subDays(30))
+        ->delete();
+})->weekly()->sundays()->at('03:00');
+Schedule::command('kwitansi:clean 2')->monthly()->at('04:00');

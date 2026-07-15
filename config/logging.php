@@ -123,6 +123,12 @@ return [
             'handler' => NullHandler::class,
         ],
 
+        'telegram' => [
+            'driver' => 'monolog',
+            'handler' => App\Logging\TelegramLogHandler::class,
+            'level' => env('LOG_TELEGRAM_LEVEL', 'error'),
+        ],
+
         'emergency' => [
             'path' => storage_path('logs/laravel.log'),
         ],

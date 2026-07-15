@@ -8,12 +8,22 @@ use App\Imports\MasterKodeRekeningImport;
 use App\Exports\MasterKodeRekeningTemplateExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class MasterKodeRekeningController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $masterKodeRekenings = MasterKodeRekening::with('jenisBelanja')->get();
+        $query = MasterKodeRekening::with('jenisBelanja');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'LIKE', "%{$search}%")
+                  ->orWhere('kode', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $masterKodeRekenings = $query->paginate(50);
         return view('master-kode-rekening.index', compact('masterKodeRekenings'));
     }
 
@@ -29,6 +39,8 @@ class MasterKodeRekeningController extends Controller
         ]);
 
         Excel::import(new MasterKodeRekeningImport, $request->file('file'));
+
+        Cache::forget('master_kode_rekenings');
 
         return back()->with('success', 'Master Kode Rekening berhasil diimport!');
     }
@@ -49,6 +61,8 @@ class MasterKodeRekeningController extends Controller
 
         MasterKodeRekening::create($validated);
 
+        Cache::forget('master_kode_rekenings');
+
         return redirect()->route('master-kode-rekening.index')->with('success', 'Master Kode Rekening berhasil ditambahkan.');
     }
 
@@ -68,12 +82,15 @@ class MasterKodeRekeningController extends Controller
 
         $masterKodeRekening->update($validated);
 
+        Cache::forget('master_kode_rekenings');
+
         return redirect()->route('master-kode-rekening.index')->with('success', 'Master Kode Rekening berhasil diupdate.');
     }
 
     public function destroy(MasterKodeRekening $masterKodeRekening)
     {
         $masterKodeRekening->delete();
+        Cache::forget('master_kode_rekenings');
         return back()->with('success', 'Master Kode Rekening berhasil dihapus.');
     }
 }

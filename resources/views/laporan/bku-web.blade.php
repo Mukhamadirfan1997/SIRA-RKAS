@@ -11,12 +11,33 @@
         <div class="h-1.5 bg-gradient-to-r from-emerald-400 via-emerald-500 to-emerald-600"></div>
         <div class="card-body" style="padding:20px 24px;">
             <form method="GET" action="{{ $isAdmin ? route('admin.laporan.bku', ['sekolah' => $sid]) : route('laporan.bku.preview') }}" class="flex items-end gap-4 flex-wrap">
+                <div class="min-w-[140px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Tahun</label>
+                    <select name="tahun" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
+                        @foreach($tahunList ?? [TahunAnggaran::where('status', true)->first()] as $t)
+                            <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
+                                {{ $t->tahun }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="flex-1 min-w-[180px]">
                     <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Bulan</label>
                     <select name="bulan" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
                         @foreach(range(1, 12) as $m)
                             <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
                                 {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="min-w-[160px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Sumber Dana</label>
+                    <select name="sumber_dana_id" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;min-width:160px;">
+                        <option value="">Semua Sumber Dana</option>
+                        @foreach($sumberDanaList as $sd)
+                            <option value="{{ $sd->id }}" {{ request('sumber_dana_id', $sumberDanaId ?? '') == $sd->id ? 'selected' : '' }}>
+                                {{ $sd->kode }} - {{ $sd->nama }}
                             </option>
                         @endforeach
                     </select>
@@ -30,7 +51,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                         Cetak PDF
                     </button>
-                    <a href="{{ $isAdmin ? route('admin.laporan.bku.export-excel', ['sekolah' => $sid, 'bulan' => $bulan]) : route('laporan.bku.export-excel', ['bulan' => $bulan]) }}"
+                    <a href="{{ $isAdmin ? route('admin.laporan.bku.export-excel', ['sekolah' => $sid, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif->tahun]) : route('laporan.bku.export-excel', ['bulan' => $bulan, 'tahun' => $tahunAnggaranAktif->tahun]) }}"
                        class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Excel
@@ -47,7 +68,7 @@
 
     <div class="card border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
         <div class="card-header" style="border-bottom:1px solid #f1f5f9;padding:16px 24px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);">
-            <span class="card-title" style="font-size:14px;">Buku Kas Umum — {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }}</span>
+            <span class="card-title" style="font-size:14px;">Buku Kas Umum — {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') }} {{ $tahunAnggaranAktif?->tahun ?? date('Y') }}</span>
         </div>
         <div class="overflow-x-auto">
             <table class="data-table">
@@ -130,10 +151,12 @@
     function cetakPdf() {
         var tgl = document.getElementById('tanggal-cetak').value;
         var bulan = {{ $bulan }};
+        var tahun = new URLSearchParams(window.location.search).get('tahun') || '{{ $tahunAnggaranAktif->tahun }}';
+        var sd = document.querySelector('select[name="sumber_dana_id"]')?.value || '';
         @if($isAdmin)
-            var url = '{{ route("admin.laporan.bku", ["sekolah" => $sid]) }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+            var url = '{{ route("admin.laporan.bku", ["sekolah" => $sid]) }}?bulan=' + bulan + '&tahun=' + tahun + '&cetak=pdf&tanggal_cetak=' + tgl + '&sumber_dana_id=' + sd;
         @else
-            var url = '{{ route("laporan.bku") }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+            var url = '{{ route("laporan.bku") }}?bulan=' + bulan + '&tahun=' + tahun + '&cetak=pdf&tanggal_cetak=' + tgl + '&sumber_dana_id=' + sd;
         @endif
         window.open(url, '_blank');
     }

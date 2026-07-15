@@ -99,6 +99,13 @@
         <div class="card-header flex items-center justify-between">
             <span class="card-title">Data Sekolah</span>
             <form method="GET" action="{{ route('dashboard.kecamatan') }}" class="flex items-center gap-3">
+                <select name="tahun" class="form-select" onchange="this.form.submit()" style="min-width:100px">
+                    @foreach($tahunList as $t)
+                        <option value="{{ $t->tahun }}" {{ request('tahun', $tahunAnggaranAktif->tahun ?? '') == $t->tahun ? 'selected' : '' }}>
+                            {{ $t->tahun }}
+                        </option>
+                    @endforeach
+                </select>
                 <select id="bulan" name="bulan" class="form-select" onchange="this.form.submit()" style="min-width:140px">
                     @foreach(range(1, 12) as $m)
                         <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
@@ -166,12 +173,12 @@
                             </td>
                             <td class="text-center">
                                 <div class="flex gap-1 justify-center flex-wrap">
-                                    <a href="{{ route('admin.laporan.bku', ['sekolah' => $sekolah->id, 'bulan' => $bulan]) }}"
+                                    <a href="{{ route('admin.laporan.bku', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
                                        class="btn btn-success btn-sm" style="font-size:11px;padding:2px 8px;">BKU</a>
-                                    <a href="{{ route('admin.laporan.rekap-rekening', ['sekolah' => $sekolah->id, 'bulan' => $bulan]) }}"
+                                    <a href="{{ route('admin.laporan.rekap-rekening', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
                                        class="btn btn-info btn-sm" style="font-size:11px;padding:2px 8px;">Rekap</a>
-                                    <a href="{{ route('admin.laporan.rekap-kuartal', ['sekolah' => $sekolah->id, 'bulan' => $bulan]) }}"
-                                       class="btn btn-warning btn-sm" style="font-size:11px;padding:2px 8px;">Kuartal</a>
+                                    <a href="{{ route('admin.laporan.rekap-kuartal', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
+                                       class="btn btn-warning btn-sm" style="font-size:11px;padding:2px 8px;">Tribulan</a>
                                 </div>
                             </td>
                         </tr>
@@ -188,7 +195,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         @if(count($chartLabels) > 0)

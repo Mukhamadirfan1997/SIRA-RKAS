@@ -140,7 +140,9 @@
     <div style="margin-top:12px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
         <form method="GET" action="{{ route('laporan.rekap-rekening') }}" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="hidden" name="bulan" value="{{ $bulan }}">
+            <input type="hidden" name="tahun" value="{{ $tahunAnggaranAktif->tahun ?? date('Y') }}">
             <input type="hidden" name="cetak" value="pdf">
+            <input type="hidden" name="sumber_dana_id" value="{{ $sumberDanaId ?? request('sumber_dana_id') }}">
             <label style="font-size:12px;font-weight:600;color:#334155;">Tanggal Cetak:</label>
             <input type="date" name="tanggal_cetak" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" class="form-input" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
             <button type="submit" style="background:#15803d;color:white;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px;">📄 Cetak PDF</button>
@@ -150,7 +152,7 @@
         <button onclick="window.print()" style="background:#1e3a5f;color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px">
             🖨️ Cetak
         </button>
-        <a href="{{ route('laporan.rekap-rekening.export-excel', ['bulan' => $bulan]) }}" style="background:#0d6efd;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
+        <a href="{{ route('laporan.rekap-rekening.export-excel', ['bulan' => $bulan, 'tahun' => ($tahunAnggaranAktif->tahun ?? date('Y'))]) }}" style="background:#0d6efd;color:white;padding:8px 18px;border-radius:6px;text-decoration:none;font-size:13px">
             📊 Excel
         </a>
         <button onclick="window.close()" style="background:#6b7280;color:white;border:none;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:13px">

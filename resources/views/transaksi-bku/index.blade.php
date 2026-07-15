@@ -38,12 +38,31 @@
                 <p class="text-xs text-slate-400 mt-0.5">Realisasi Anggaran Harian</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
+                <input type="text" name="search" class="form-input text-sm py-1.5" placeholder="Cari no bukti/uraian..." value="{{ request('search') }}">
+                @if(request('search'))
+                    <a href="{{ route('transaksi-bku.index') }}" class="btn btn-ghost btn-sm">Reset</a>
+                @endif
                 <div class="flex items-center gap-2">
+                    <select name="tahun" onchange="this.form.submit()" class="form-select py-1.5 text-sm">
+                        @foreach($tahunList as $t)
+                            <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
+                                {{ $t->tahun }}
+                            </option>
+                        @endforeach
+                    </select>
                     <select name="bulan" onchange="this.form.submit()" class="form-select py-1.5 text-sm">
                         <option value="">Semua Bulan</option>
                         @foreach(range(1,12) as $m)
                             <option value="{{ $m }}" {{ $bulan == $m ? 'selected' : '' }}>
                                 {{ \Carbon\Carbon::create()->month($m)->translatedFormat('F') }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <select name="sumber_dana_id" onchange="this.form.submit()" class="form-select py-1.5 text-sm" style="min-width:160px">
+                        <option value="">Semua Sumber Dana</option>
+                        @foreach($sumberDanas as $sd)
+                            <option value="{{ $sd->id }}" {{ request('sumber_dana_id', $sumberDanaId ?? '') == $sd->id ? 'selected' : '' }}>
+                                {{ $sd->kode }} - {{ $sd->nama }}
                             </option>
                         @endforeach
                     </select>
@@ -59,12 +78,6 @@
                 </a>
             </div>
         </div>
-
-        @php
-            $totalPenerimaan = $transaksis->filter(function($t) { return strtolower($t->jenis) == 'penerimaan'; })->sum('jumlah');
-            $totalPengeluaran = $transaksis->filter(function($t) { return strtolower($t->jenis) == 'pengeluaran'; })->sum('jumlah');
-            $saldoAkhir = $totalPenerimaan - $totalPengeluaran;
-        @endphp
 
         <div class="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
             <div class="px-6 py-3.5 text-center">
@@ -229,6 +242,11 @@
                 @endif
             </table>
         </div>
+        @if($transaksis->hasPages())
+            <div class="px-4 py-3 border-t border-slate-100">
+                {{ $transaksis->links() }}
+            </div>
+        @endif
     </form>
     </div>
 

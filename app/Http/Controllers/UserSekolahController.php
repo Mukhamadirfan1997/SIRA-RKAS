@@ -10,9 +10,18 @@ use Illuminate\Validation\Rules;
 
 class UserSekolahController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::with('profilSekolah')->orderBy('name')->get();
+        $query = User::with('profilSekolah')->orderBy('name');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'LIKE', "%{$search}%")
+                  ->orWhere('email', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $users = $query->paginate(50);
         return view('user-sekolah.index', compact('users'));
     }
 

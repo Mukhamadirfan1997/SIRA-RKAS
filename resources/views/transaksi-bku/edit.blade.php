@@ -54,19 +54,14 @@
                             <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Item RKAS</h3>
                         </div>
                         <div class="mb-3">
-                            <select name="rkas_item_id" id="rkas_item_id" class="form-select">
-                                <option value="" data-tarif="0" data-program="" data-kode="" data-satuan="" data-sisa="">-- Pilih Item RKAS --</option>
-                                @foreach($rkasItems as $item)
-                                    <option value="{{ $item->id }}"
-                                        data-tarif="{{ $item->tarif }}"
-                                        data-program="{{ $item->program->nama ?? '-' }}"
-                                        data-kode="{{ $item->kodeRekening->kode ?? '-' }}"
-                                        data-satuan="{{ $item->satuan }}"
-                                        data-sisa="{{ $item->sisa }}"
-                                        {{ old('rkas_item_id', $transaksiBku->rkas_item_id) == $item->id ? 'selected' : '' }}>
-                                        {{ $item->no_urut }}. {{ $item->uraian }} (Sisa: Rp {{ number_format($item->sisa, 0, ',', '.') }})
+                            <select name="rkas_item_id" id="rkas_item_id" class="form-select" style="width:100%">
+                                @if($transaksiBku->rkasItem)
+                                    <option value="{{ $transaksiBku->rkasItem->id }}" selected>
+                                        {{ $transaksiBku->rkasItem->no_urut }}. {{ $transaksiBku->rkasItem->uraian }}
                                     </option>
-                                @endforeach
+                                @else
+                                    <option value="">-- Cari Item RKAS --</option>
+                                @endif
                             </select>
                             @error('rkas_item_id')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -167,7 +162,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const rkasSelect = document.getElementById('rkas_item_id');
+            const rkasSelect = $('#rkas_item_id');
             const hargaInput = document.getElementById('harga_satuan');
             const volumeInput = document.getElementById('volume_barang');
             const jumlahInput = document.getElementById('jumlah');
@@ -183,19 +178,64 @@
             const detailTarif = document.getElementById('detail_tarif');
             const detailSisa = document.getElementById('detail_sisa');
 
-            let isInitialLoad = true;
+            const rkasData = {};
+            var initialItemId = "{{ old('rkas_item_id', $transaksiBku->rkas_item_id) }}";
+
+            function fetchInitialItem(id, callback) {
+                $.ajax('{{ route("rkas-items.select2") }}', {
+                    data: { q: '', exclude: [] },
+                    dataType: 'json',
+                    success: function(resp) {
+                        var found = null;
+                        resp.results.forEach(function(item) {
+                            rkasData[item.id] = item;
+                            if (item.id == id) found = item;
+                        });
+                        callback(found);
+                    }
+                });
+            }
+
+            rkasSelect.select2({
+                ajax: {
+                    url: '{{ route("rkas-items.select2") }}',
+                    dataType: 'json',
+                    delay: 300,
+                    data: function(params) {
+                        return { q: params.term, page: params.page || 1 };
+                    },
+                    processResults: function(data) {
+                        data.results.forEach(function(item) {
+                            rkasData[item.id] = item;
+                        });
+                        return data;
+                    },
+                    cache: true
+                },
+                placeholder: '-- Cari Item RKAS --',
+                minimumInputLength: 0,
+                allowClear: true,
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    if (item.id && rkasData[item.id]) {
+                        return rkasData[item.id].text;
+                    }
+                    return item.text || '-- Cari Item RKAS --';
+                }
+            });
 
             function toggleVisibility() {
                 if (jenisSelect.value === 'penerimaan') {
                     rowRkas.style.display = 'none';
                     rowKalkulator.style.display = 'none';
                     rowMetodePengadaan.style.display = 'none';
-                    if (!isInitialLoad) {
-                        rkasSelect.value = '';
-                        hargaInput.value = '';
-                        hargaInput.dataset.val = 0;
-                        volumeInput.value = '';
-                    }
+                    rkasSelect.val(null).trigger('change');
+                    hargaInput.value = '';
+                    hargaInput.dataset.val = 0;
+                    volumeInput.value = '';
                     hideDetailCard();
                 } else {
                     rowRkas.style.display = 'block';
@@ -204,17 +244,13 @@
                 }
             }
 
-            function showDetailCard(opt) {
-                const program = opt.getAttribute('data-program');
-                const kode = opt.getAttribute('data-kode');
-                const tarif = parseFloat(opt.getAttribute('data-tarif')) || 0;
-                const satuan = opt.getAttribute('data-satuan') || '-';
-                const sisa = parseFloat(opt.getAttribute('data-sisa')) || 0;
-                if (!program && !kode) { hideDetailCard(); return; }
-                detailProgram.textContent = program || '-';
-                detailKode.textContent = kode || '-';
-                detailTarif.textContent = tarif > 0 ? 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif) + ' / ' + satuan : '-';
-                detailSisa.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(sisa);
+            function showDetailCard(data) {
+                if (!data || (!data.program && !data.kode)) { hideDetailCard(); return; }
+                detailProgram.textContent = data.program || '-';
+                detailKode.textContent = data.kode || '-';
+                var tarifText = data.tarif > 0 ? 'Rp ' + new Intl.NumberFormat('id-ID').format(data.tarif) + ' / ' + (data.satuan || '-') : '-';
+                detailTarif.textContent = tarifText;
+                detailSisa.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(data.sisa || 0);
                 detailCard.classList.remove('hidden');
             }
 
@@ -222,9 +258,8 @@
                 detailCard.classList.add('hidden');
             }
 
-            function updateHarga() {
-                const selectedOption = rkasSelect.options[rkasSelect.selectedIndex];
-                const tarif = selectedOption ? parseFloat(selectedOption.getAttribute('data-tarif')) || 0 : 0;
+            function updateHarga(data) {
+                var tarif = data ? (parseFloat(data.tarif) || 0) : 0;
                 if (tarif > 0) {
                     hargaInput.value = 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif);
                     hargaInput.dataset.val = tarif;
@@ -233,44 +268,54 @@
                     hargaInput.dataset.val = 0;
                 }
                 kalkulasiJumlah();
-                if (selectedOption && selectedOption.value) {
-                    showDetailCard(selectedOption);
+                if (data) {
+                    showDetailCard(data);
                 } else {
                     hideDetailCard();
                 }
             }
 
             function kalkulasiJumlah() {
-                if (isInitialLoad) return;
-                const tarif = parseFloat(hargaInput.dataset.val) || 0;
-                const volume = parseFloat(volumeInput.value) || 0;
+                var tarif = parseFloat(hargaInput.dataset.val) || 0;
+                var volume = parseFloat(volumeInput.value) || 0;
                 if (tarif > 0 && volume > 0 && jenisSelect.value === 'pengeluaran') {
                     jumlahInput.value = (tarif * volume).toFixed(2);
                 }
             }
 
-            jenisSelect.addEventListener('change', function() {
-                isInitialLoad = false;
-                toggleVisibility();
-            });
-            rkasSelect.addEventListener('change', function() {
-                isInitialLoad = false;
-                updateHarga();
-            });
-            volumeInput.addEventListener('input', function() {
-                isInitialLoad = false;
-                kalkulasiJumlah();
+            rkasSelect.on('select2:select', function(e) {
+                var data = e.params.data;
+                if (data && data.id) {
+                    rkasData[data.id] = data;
+                }
+                updateHarga(data);
             });
 
+            rkasSelect.on('select2:clear', function() {
+                updateHarga(null);
+            });
+
+            jenisSelect.addEventListener('change', toggleVisibility);
+            volumeInput.addEventListener('input', kalkulasiJumlah);
+
             toggleVisibility();
-            if(rkasSelect.value) {
-                const selectedOption = rkasSelect.options[rkasSelect.selectedIndex];
-                const tarif = selectedOption ? parseFloat(selectedOption.getAttribute('data-tarif')) || 0 : 0;
-                if (tarif > 0) {
-                    hargaInput.value = 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif);
-                    hargaInput.dataset.val = tarif;
+            volumeInput.disabled = true;
+
+            if (initialItemId) {
+                var opt = rkasSelect.find('option[value="' + initialItemId + '"]');
+                if (opt.length && opt.val()) {
+                    fetchInitialItem(initialItemId, function(data) {
+                        if (data) {
+                            rkasSelect.val(initialItemId).trigger('change');
+                            updateHarga(data);
+                        }
+                        volumeInput.disabled = false;
+                    });
+                } else {
+                    volumeInput.disabled = false;
                 }
-                showDetailCard(selectedOption);
+            } else {
+                volumeInput.disabled = false;
             }
         });
     </script>

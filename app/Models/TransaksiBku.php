@@ -15,6 +15,7 @@ class TransaksiBku extends Model
 
     protected $fillable = [
         'sekolah_id',
+        'tahun_anggaran_id',
         'rkas_item_id',
         'tanggal',
         'bulan',
@@ -23,6 +24,7 @@ class TransaksiBku extends Model
         'jumlah',
         'toko_penerima',
         'metode_pengadaan',
+        'sumber_dana_id',
         'uraian',
         'tahap',
         'status_lunas',
@@ -55,6 +57,11 @@ class TransaksiBku extends Model
         return $this->belongsTo(RkasItem::class);
     }
 
+    public function tahunAnggaran(): BelongsTo
+    {
+        return $this->belongsTo(TahunAnggaran::class);
+    }
+
     public function sekolah(): BelongsTo
     {
         return $this->belongsTo(ProfilSekolah::class, 'sekolah_id');
@@ -73,5 +80,10 @@ class TransaksiBku extends Model
     public function kwitansi(): HasOne
     {
         return $this->hasOne(Kwitansi::class);
+    }
+
+    public function sumberDana(): BelongsTo
+    {
+        return $this->belongsTo(SumberDana::class);
     }
 }

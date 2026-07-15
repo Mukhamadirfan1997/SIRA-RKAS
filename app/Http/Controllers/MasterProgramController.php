@@ -6,12 +6,22 @@ use App\Models\MasterProgram;
 use App\Imports\MasterProgramImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class MasterProgramController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $masterPrograms = MasterProgram::with('parent')->get();
+        $query = MasterProgram::with('parent');
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama', 'LIKE', "%{$search}%")
+                  ->orWhere('kode', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $masterPrograms = $query->paginate(50);
         return view('master-program.index', compact('masterPrograms'));
     }
 
@@ -25,6 +35,8 @@ class MasterProgramController extends Controller
 
         $import = new MasterProgramImport;
         Excel::import($import, $request->file('file'));
+
+        Cache::forget('master_programs');
 
         $msg = "Import selesai: {$import->importedCount} data berhasil diimport.";
 
@@ -61,6 +73,8 @@ class MasterProgramController extends Controller
 
         MasterProgram::create($validated);
 
+        Cache::forget('master_programs');
+
         return redirect()->route('master-program.index')->with('success', 'Master Program berhasil ditambahkan.');
     }
 
@@ -83,12 +97,15 @@ class MasterProgramController extends Controller
 
         $masterProgram->update($validated);
 
+        Cache::forget('master_programs');
+
         return redirect()->route('master-program.index')->with('success', 'Master Program berhasil diupdate.');
     }
 
     public function destroy(MasterProgram $masterProgram)
     {
         $masterProgram->delete();
+        Cache::forget('master_programs');
         return back()->with('success', 'Master Program berhasil dihapus.');
     }
 }

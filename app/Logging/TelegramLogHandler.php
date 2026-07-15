@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Logging;
+
+use App\Jobs\SendTelegramNotificationJob;
+use Monolog\Handler\AbstractProcessingHandler;
+use Monolog\Level;
+use Monolog\LogRecord;
+
+class TelegramLogHandler extends AbstractProcessingHandler
+{
+    protected function write(LogRecord $record): void
+    {
+        $level = $record->level;
+
+        if (Level::Error->includes($level)) {
+            $extra = $this->sanitize($record->extra);
+            $extra['url'] = request()?->fullUrl() ?? 'N/A';
+            $extra['user_email'] = auth()->user()?->email ?? auth()->user()?->name ?? 'Guest';
+
+            SendTelegramNotificationJob::dispatch(
+                level: $level->getName(),
+                message: $record->message,
+                context: $this->sanitize($record->context),
+                extra: $extra,
+            );
+        }
+    }
+
+    private function sanitize(array $data): array
+    {
+        $result = [];
+        foreach ($data as $key => $value) {
+            if ($value instanceof \Closure || is_resource($value)) {
+                continue;
+            }
+            if (is_array($value)) {
+                $result[$key] = $this->sanitize($value);
+            } elseif (is_object($value)) {
+                try {
+                    serialize($value);
+                    $result[$key] = $value;
+                } catch (\Throwable) {
+                    $result[$key] = '[' . get_class($value) . ']';
+                }
+            } else {
+                $result[$key] = $value;
+            }
+        }
+        return $result;
+    }
+}

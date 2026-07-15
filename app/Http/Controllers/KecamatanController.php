@@ -9,7 +9,7 @@ class KecamatanController extends Controller
 {
     public function index()
     {
-        $kecamatans = Kecamatan::all();
+        $kecamatans = Kecamatan::paginate(50);
         return view('kecamatan.index', compact('kecamatans'));
     }
 

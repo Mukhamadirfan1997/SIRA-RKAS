@@ -184,7 +184,9 @@
     <div style="margin-top:12px;padding:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
         <form method="GET" action="{{ route('laporan.bku') }}" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
             <input type="hidden" name="bulan" value="{{ $bulan }}">
+            <input type="hidden" name="tahun" value="{{ $tahunAnggaranAktif->tahun ?? date('Y') }}">
             <input type="hidden" name="cetak" value="pdf">
+            <input type="hidden" name="sumber_dana_id" value="{{ $sumberDanaId ?? request('sumber_dana_id') }}">
             <label style="font-size:12px;font-weight:600;color:#334155;">Tanggal Cetak:</label>
             <input type="date" name="tanggal_cetak" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" class="form-input" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:12px;">
             <button type="submit" style="background:#15803d;color:white;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px;">📄 Cetak PDF</button>

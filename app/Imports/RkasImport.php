@@ -102,7 +102,7 @@ class RkasImport implements ToModel, WithStartRow
     protected function logError(string $message): void
     {
         if (!$this->importLogId) return;
-        $log = ImportLog::withoutGlobalScopes()->find($this->importLogId);
+        $log = ImportLog::withoutGlobalScope('sekolah')->find($this->importLogId);
         if ($log) {
             $log->increment('baris_gagal');
             $errs = $log->error_detail ?? [];
@@ -115,7 +115,7 @@ class RkasImport implements ToModel, WithStartRow
     protected function incrementBerhasil(): void
     {
         if (!$this->importLogId) return;
-        ImportLog::withoutGlobalScopes()->where('id', $this->importLogId)
+        ImportLog::withoutGlobalScope('sekolah')->where('id', $this->importLogId)
             ->increment('baris_berhasil');
     }
 

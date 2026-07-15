@@ -13,18 +13,24 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
     protected int $bulan;
     protected string $profil;
     protected ?int $sekolahId;
+    protected ?int $tahunAnggaranId;
+    protected ?int $sumberDanaId;
 
-    public function __construct(int $bulan, string $profil, ?int $sekolahId = null)
+    public function __construct(int $bulan, string $profil, ?int $sekolahId = null, ?int $tahunAnggaranId = null, ?int $sumberDanaId = null)
     {
         $this->bulan = $bulan;
         $this->profil = $profil;
         $this->sekolahId = $sekolahId;
+        $this->tahunAnggaranId = $tahunAnggaranId ?? \App\Models\TahunAnggaran::where('status', true)->value('id');
+        $this->sumberDanaId = $sumberDanaId;
     }
 
     public function collection()
     {
         $query = TransaksiBku::with('rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja')
+            ->where('tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('bulan', $this->bulan)
+            ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
             ->orderBy('tanggal')
             ->orderBy('id');
 
@@ -34,12 +40,12 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 
         $transaksis = $query->get();
 
-        $baseQuery = TransaksiBku::where('bulan', '<', $this->bulan);
-        if ($this->sekolahId) {
-            $baseQuery->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId);
-        }
-        $saldoAwal = $baseQuery->get()
-            ->reduce(fn($c, $t) => $c + (strtolower($t->jenis) == 'penerimaan' ? $t->jumlah : -$t->jumlah), 0);
+        $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('bulan', '<', $this->bulan)
+            ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
+            ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
+            ->selectRaw("COALESCE(SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END), 0) as saldo")
+            ->value('saldo') ?? 0;
 
         $saldo = $saldoAwal;
         foreach ($transaksis as $t) {
@@ -59,8 +65,16 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
         $t2 = new \stdClass();
         $t2->kode = '';
         $t2->uraian = 'Saldo Akhir';
-        $t2->penerimaan = $transaksis->where('jenis', 'penerimaan')->sum('jumlah') ?? 0;
-        $t2->pengeluaran = $transaksis->where('jenis', 'pengeluaran')->sum('jumlah') ?? 0;
+        $t2->penerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('bulan', $this->bulan)
+            ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
+            ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
+            ->where('jenis', 'penerimaan')->sum('jumlah');
+        $t2->pengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('bulan', $this->bulan)
+            ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
+            ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
+            ->where('jenis', 'pengeluaran')->sum('jumlah');
         $t2->saldo = $saldo;
         $t2->is_header = true;
         $transaksis->push($t2);

@@ -11,6 +11,16 @@
         <div class="h-1.5 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
         <div class="card-body" style="padding:20px 24px;">
             <form method="GET" action="{{ $isAdmin ? route('admin.laporan.rekap-rekening', ['sekolah' => $sid]) : route('laporan.rekap-rekening.preview') }}" class="flex items-end gap-4 flex-wrap">
+                <div class="min-w-[140px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Tahun</label>
+                    <select name="tahun" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
+                        @foreach($tahunList ?? [TahunAnggaran::where('status', true)->first()] as $t)
+                            <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
+                                {{ $t->tahun }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="flex-1 min-w-[180px]">
                     <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Bulan</label>
                     <select name="bulan" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
@@ -21,16 +31,35 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="flex-1 min-w-[200px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Cari Uraian</label>
+                    <input type="text" name="search" value="{{ request('search') }}" placeholder="Ketik uraian anggaran..." class="form-input" style="border-radius:10px;border-color:#e2e8f0;padding:8px 12px;">
+                </div>
+                <div class="min-w-[160px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Sumber Dana</label>
+                    <select name="sumber_dana_id" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;min-width:160px;">
+                        <option value="">Semua Sumber Dana</option>
+                        @foreach($sumberDanaList as $sd)
+                            <option value="{{ $sd->id }}" {{ request('sumber_dana_id', $sumberDanaId ?? '') == $sd->id ? 'selected' : '' }}>
+                                {{ $sd->kode }} - {{ $sd->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                 <div class="min-w-[180px]">
                     <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Tanggal Cetak</label>
                     <input type="date" id="tanggal-cetak" value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" class="form-input" style="border-radius:10px;border-color:#e2e8f0;padding:8px 12px;">
                 </div>
                 <div class="flex gap-2 items-center">
+                    <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        Cari
+                    </button>
                     <button type="button" onclick="cetakPdf()" class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 shadow-sm transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                         Cetak PDF
                     </button>
-                    <a href="{{ $isAdmin ? route('admin.laporan.rekap-rekening.export-excel', ['sekolah' => $sid, 'bulan' => $bulan]) : route('laporan.rekap-rekening.export-excel', ['bulan' => $bulan]) }}"
+                    <a href="{{ $isAdmin ? route('admin.laporan.rekap-rekening.export-excel', ['sekolah' => $sid, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif->tahun]) : route('laporan.rekap-rekening.export-excel', ['bulan' => $bulan, 'tahun' => $tahunAnggaranAktif->tahun]) }}"
                        class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-blue-600 hover:to-blue-700 shadow-sm transition-all">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         Excel
@@ -45,9 +74,55 @@
         </div>
     </div>
 
+    @if($subtotals->count() > 0)
+    <div class="card mb-6 border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
+        <div class="card-header" style="border-bottom:1px solid #f1f5f9;padding:16px 24px;background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);">
+            <span class="card-title" style="font-size:14px;">Rekap per Jenis Belanja — {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') }} {{ $tahunAnggaranAktif?->tahun ?? date('Y') }}</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:180px">Jenis Belanja</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Anggaran (Rencana)</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Realisasi (GSP)</th>
+                        <th class="text-right whitespace-nowrap" style="min-width:140px">Sisa Anggaran</th>
+                        <th class="text-center" style="min-width:80px">%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($subtotals as $jenis => $data)
+                    <tr>
+                        <td class="font-medium text-slate-800">{{ $jenis }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($data['rencana'], 0, ',', '.') }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($data['realisasi'], 0, ',', '.') }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($data['sisa'], 0, ',', '.') }}</td>
+                        <td class="text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold {{ $data['persen'] >= 100 ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
+                                {{ $data['persen'] }}%
+                            </span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr style="background:linear-gradient(135deg,#1e3a5f 0%,#1e40af 100%);">
+                        <td class="text-right font-bold text-white">TOTAL KESELURUHAN</td>
+                        <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRencana, 0, ',', '.') }}</td>
+                        <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRealisasi, 0, ',', '.') }}</td>
+                        <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalSisa, 0, ',', '.') }}</td>
+                        <td class="text-center font-bold text-white">{{ $grandTotalPersen }}%</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    @endif
+
     <div class="card border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
         <div class="card-header" style="border-bottom:1px solid #f1f5f9;padding:16px 24px;background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);">
-            <span class="card-title" style="font-size:14px;">Rekap Realisasi — {{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F Y') }}</span>
+            <span class="card-title" style="font-size:14px;">Detail Anggaran</span>
+            <span class="text-xs text-slate-400 ml-2">({{ $rkasItems->total() ?? 0 }} item ditemukan)</span>
         </div>
         <div class="overflow-x-auto">
             <table class="data-table">
@@ -62,74 +137,44 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php
-                        $grandTotalRencana = 0;
-                        $grandTotalRealisasi = 0;
-                        $grandTotalSisa = 0;
-                        $i = 1;
-                    @endphp
-                    @forelse($grouped as $jenisBelanja => $items)
-                        <tr style="background:linear-gradient(135deg,#f0f4ff 0%,#e8f0fe 100%);">
-                            <td colspan="6" class="font-bold text-blue-800 text-sm">{{ $jenisBelanja }}</td>
-                        </tr>
-
-                        @php
-                            $subRencana = $items->sum('rencana_bulan');
-                            $subRealisasi = $items->sum('realisasi_bulan');
-                            $subSisa = $items->sum('sisa_bulan');
-                            $grandTotalRencana += $subRencana;
-                            $grandTotalRealisasi += $subRealisasi;
-                            $grandTotalSisa += $subSisa;
-                        @endphp
-
-                        @foreach($items as $item)
-                            <tr>
-                                <td class="text-center">{{ $i++ }}</td>
-                                <td style="font-family:monospace">{{ $item->kodeRekening?->kode ?? '-' }}</td>
-                                <td>{{ $item->uraian }}</td>
-                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->rencana_bulan, 0, ',', '.') }}</td>
-                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->realisasi_bulan, 0, ',', '.') }}</td>
-                                <td class="text-right whitespace-nowrap">Rp {{ number_format($item->sisa_bulan, 0, ',', '.') }}</td>
-                            </tr>
-                        @endforeach
-
-                        <tr style="background:#f8fafc;">
-                            <td colspan="3" class="text-right font-semibold text-sm text-slate-600">SUBTOTAL {{ strtoupper($jenisBelanja) }}</td>
-                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subRencana, 0, ',', '.') }}</td>
-                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subRealisasi, 0, ',', '.') }}</td>
-                            <td class="text-right font-semibold whitespace-nowrap">Rp {{ number_format($subSisa, 0, ',', '.') }}</td>
-                        </tr>
+                    @forelse($rkasItems as $item)
+                    <tr>
+                        <td class="text-center">{{ $rkasItems->firstItem() + $loop->index }}</td>
+                        <td style="font-family:monospace">{{ $item->kodeRekening?->kode ?? '-' }}</td>
+                        <td>{{ $item->uraian }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($item->rencana_bulan, 0, ',', '.') }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($item->realisasi_bulan, 0, ',', '.') }}</td>
+                        <td class="text-right whitespace-nowrap">Rp {{ number_format($item->sisa_bulan, 0, ',', '.') }}</td>
+                    </tr>
                     @empty
-                        <tr>
-                            <td colspan="6" class="text-center py-12 text-slate-400">
-                                <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                                Belum ada data anggaran.
-                            </td>
-                        </tr>
+                    <tr>
+                        <td colspan="6" class="text-center py-12 text-slate-400">
+                            <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            {{ request('search') ? 'Tidak ada anggaran yang cocok dengan pencarian.' : 'Belum ada data anggaran.' }}
+                        </td>
+                    </tr>
                     @endforelse
                 </tbody>
-                @if($grouped->count() > 0)
-                    <tfoot>
-                        <tr style="background:linear-gradient(135deg,#1e3a5f 0%,#1e40af 100%);">
-                            <td colspan="3" class="text-right font-bold text-white">TOTAL KESELURUHAN</td>
-                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRencana, 0, ',', '.') }}</td>
-                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalRealisasi, 0, ',', '.') }}</td>
-                            <td class="text-right font-bold text-white whitespace-nowrap">Rp {{ number_format($grandTotalSisa, 0, ',', '.') }}</td>
-                        </tr>
-                    </tfoot>
-                @endif
             </table>
         </div>
+        @if(method_exists($rkasItems, 'hasPages') && $rkasItems->hasPages())
+        <div class="px-4 py-3 border-t border-slate-100">
+            {{ $rkasItems->links() }}
+        </div>
+        @endif
     </div>
 
     <script>
     function cetakPdf() {
         var tgl = document.getElementById('tanggal-cetak').value;
         var bulan = {{ $bulan }};
+        var tahun = new URLSearchParams(window.location.search).get('tahun') || '{{ $tahunAnggaranAktif->tahun }}';
+        var search = document.querySelector('input[name="search"]').value;
+        var sd = document.querySelector('select[name="sumber_dana_id"]')?.value || '';
         @if($isAdmin)
-            var url = '{{ route("admin.laporan.rekap-rekening", ["sekolah" => $sid]) }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+            var url = '{{ route("admin.laporan.rekap-rekening", ["sekolah" => $sid]) }}?bulan=' + bulan + '&tahun=' + tahun + '&cetak=pdf&tanggal_cetak=' + tgl + '&search=' + encodeURIComponent(search) + '&sumber_dana_id=' + sd;
         @else
-            var url = '{{ route("laporan.rekap-rekening") }}?bulan=' + bulan + '&cetak=pdf&tanggal_cetak=' + tgl;
+            var url = '{{ route("laporan.rekap-rekening") }}?bulan=' + bulan + '&tahun=' + tahun + '&cetak=pdf&tanggal_cetak=' + tgl + '&search=' + encodeURIComponent(search) + '&sumber_dana_id=' + sd;
         @endif
         window.open(url, '_blank');
     }

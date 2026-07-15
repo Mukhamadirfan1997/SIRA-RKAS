@@ -1,4 +1,4 @@
-# CATATAN SESI SIRA-RKAS
+﻿# CATATAN SESI SIRA-RKAS
 
 ## 1. Fix Import RKAS (0 baris)
 - Removed `WithChunkReading`, `ShouldQueue` dari `RkasImport`
@@ -123,3 +123,59 @@
 - **`rekap-siplah.blade.php`** (PDF): label periode updated (`$periodeLabel`)
 - **`RekapSiplahExport`**: konstruktor terima `array $months` + `$periodeLabel`, query pakai `whereIn('bulan', $months)`
 - **Export Excel**: file名 pakai slug dari `$periodeLabel`
+- **Fix tanda tangan PDF**: tambah `height:75px` untuk ruang tanda tangan, format bendahara → "Kecamatan, Tanggal Cetak + Bendahara" (konsisten dengan BKU PDF)
+- **Commit**: `2d6a4f9` — push ke `master`
+
+## 19. Perencanaan: Telegram Real-time Logger & Alerting System
+- **Diskusi PRD**: membahas implementasi sistem notifikasi error via Telegram Bot API
+- **Keputusan arsitektur**: Custom Monolog Handler + Queue Job (async via queue database)
+  - `app/Logging/TelegramLogHandler.php` - handler dispatch job
+  - `app/Jobs/SendTelegramNotificationJob.php` - kirim HTTP POST ke Telegram
+  - Tidak mengubah kode bisnis existing - additive only
+- **Level filtering**: hanya error, critical, alert, emergency yang trigger Telegram
+- **Rate limiting**: Cache::lock() 5 detik antar pesan
+- **Queue**: pakai koneksi database yang sudah aktif
+- **File planning**: planning.md dibuat sebagai acuan implementasi
+- **Status**: Menunggu review & persetujuan sebelum eksekusi
+
+## 20. Pembuatan Bot Telegram
+- Bot dibuat via @BotFather: **@sira_rkas_alert_bot**
+- Token disimpan ke `.env`: `TELEGRAM_BOT_TOKEN`
+- `.env.example` juga diupdate (token kosong) untuk dokumentasi tim
+- Chat ID grup masih kosong — menunggu user membuat grup & menambah bot
+- **Status**: Menunggu Chat ID grup + implementasi kode
+
+## 21. Implementasi Telegram Logger
+- **Chat ID grup** diisi: `TELEGRAM_CHAT_ID=-4440074532` (dari URL `https://web.telegram.org/k/#-4440074532`)
+- **Dibuat**:
+  - `app/Logging/TelegramLogHandler.php` — Monolog handler, dispatch job untuk level >= Error
+  - `app/Jobs/SendTelegramNotificationJob.php` — Queue job HTTP POST ke Telegram API
+    - Format HTML: level + emoji, waktu, lingkungan, pesan, URL, user
+    - Rate limiting: `Cache::lock('telegram-notification', 5)` — max 1 pesan per 5 detik
+    - Timeout HTTP: 5 detik
+- **Dimodifikasi**:
+  - `config/logging.php` — tambah channel `telegram` (monolog handler)
+  - `.env` — `LOG_STACK=single,telegram` supaya error otomatis masuk Telegram
+  - `.env.example` — `LOG_STACK=single,telegram` untuk dokumentasi
+- **Tests dibuat** (15 tests, 24 assertions):
+  - `tests/Unit/TelegramLogHandlerTest.php` (8 tests): error+ dispatch, warning- skip
+  - `tests/Unit/SendTelegramNotificationJobTest.php` (7 tests): HTTP POST, format HTML, skip jika kosong, rate limiting, emoji per level
+- **Hasil**: 76/76 tests PASS (15 baru + 61 existing)
+- **Catatan**: Butuh queue worker jalan (`php artisan queue:work`)
+
+## 22. Catatan Belum Selesai & Perlu Diperbaiki
+
+### 🟡 MEDIUM
+- **Supervisor/nssm untuk queue worker** — perlu setup service `queue:work --daemon` di production Windows
+- **`LAPORAN_PENGUJIAN.md`** — bisa dijadikan dokumentasi tim
+
+### 🟢 SUDAH DIKERJAKAN
+- **2026-07-15**: Filter tahun di semua halaman (BKU, SIPLAH, Rekap Rekening, Rekap Tribulan, RKAS, Dashboard, Dashboard Kecamatan) ✅
+- **2026-07-15**: Filter tahun di semua link hub (laporan/index, dashboard-kecamatan) ✅
+- **2026-07-15**: Filter tahun di PDF views + export classes ✅
+- **2026-07-15**: Rename "Kuartal" → "Tribulan" di semua tampilan ✅
+- **2026-07-15**: Tag `@group performance` di `PerformanceTest` ✅
+- **2026-07-16**: Filter sumber dana di semua halaman (migration + 8 controller + 4 export + 7 view dropdown + 4 PDF hidden) ✅
+- **2026-07-16**: RKAS per-sekolah untuk admin kecamatan (dropdown sekolah + kolom sekolah di tabel) ✅
+- **2026-07-16**: Relasi `sekolah()` di `RkasItem` model ✅
+- **Tests**: 76/76 lulus (PerformanceTest di-exclude via `--exclude-group=performance`)

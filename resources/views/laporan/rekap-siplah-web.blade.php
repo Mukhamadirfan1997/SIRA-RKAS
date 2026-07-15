@@ -17,6 +17,13 @@
                     <div>
                         <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Periode</label>
                         <form id="filter-form" class="flex items-end gap-2">
+                            <select id="tahun-select" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:110px;" onchange="applyFilter()">
+                                @foreach($tahunList ?? [TahunAnggaran::where('status', true)->first()] as $t)
+                                    <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
+                                        {{ $t->tahun }}
+                                    </option>
+                                @endforeach
+                            </select>
                             <select id="periode-select" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:200px;" onchange="applyFilter()">
                                 @foreach(range(1,12) as $m)
                                     <option value="{{ $m }}" {{ count($months) == 1 && $months[0] == $m ? 'selected' : '' }}>
@@ -26,6 +33,14 @@
                                 <option value="h1" {{ $months == [1,2,3,4,5,6] ? 'selected' : '' }}>Januari – Juni</option>
                                 <option value="h2" {{ $months == [7,8,9,10,11,12] ? 'selected' : '' }}>Juli – Desember</option>
                                 <option value="all" {{ count($months) == 12 ? 'selected' : '' }}>Seluruh Tahun</option>
+                            </select>
+                            <select name="sumber_dana_id" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:160px;" onchange="applyFilter()">
+                                <option value="">Semua Sumber Dana</option>
+                                @foreach($sumberDanaList as $sd)
+                                    <option value="{{ $sd->id }}" {{ request('sumber_dana_id', $sumberDanaId ?? '') == $sd->id ? 'selected' : '' }}>
+                                        {{ $sd->kode }} - {{ $sd->nama }}
+                                    </option>
+                                @endforeach
                             </select>
                             <input type="hidden" name="tanggal_cetak" id="tanggal-cetak" value="{{ $tanggalCetak ?? date('Y-m-d') }}">
                         </form>
@@ -61,7 +76,7 @@
                     </div>
                     <p class="text-xs text-slate-500 uppercase tracking-wide font-semibold">Total Pengeluaran</p>
                     <p class="text-3xl font-extrabold text-slate-800 mt-3">Rp {{ number_format($totalPengeluaran, 0, ',', '.') }}</p>
-                    <p class="text-sm text-slate-400 mt-2">{{ $periodeLabel }} {{ $tahunAnggaranAktif->tahun ?? date('Y') }}</p>
+                    <p class="text-sm text-slate-400 mt-2">{{ $periodeLabel }} {{ $tahunAnggaranAktif?->tahun ?? date('Y') }}</p>
                 </div>
             </div>
 
@@ -201,7 +216,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
         @if($totalPengeluaran > 0)
         const ctx = document.getElementById('chart-siplah').getContext('2d');
@@ -245,10 +259,14 @@
 
         function buildPeriodeParam() {
             var val = document.getElementById('periode-select').value;
+            var tahun = document.getElementById('tahun-select').value;
+            var sd = document.querySelector('select[name="sumber_dana_id"]')?.value || '';
+            var params = 'tahun=' + tahun;
+            if (sd) params += '&sumber_dana_id=' + sd;
             if (val === 'h1' || val === 'h2' || val === 'all') {
-                return 'periode=' + val;
+                return params + '&periode=' + val;
             }
-            return 'bulan=' + val;
+            return params + '&bulan=' + val;
         }
 
         function applyFilter() {

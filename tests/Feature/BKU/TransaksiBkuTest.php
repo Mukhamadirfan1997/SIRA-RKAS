@@ -4,6 +4,7 @@ namespace Tests\Feature\BKU;
 
 use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
+use App\Models\TahunAnggaran;
 use App\Models\TransaksiBku;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +19,7 @@ class TransaksiBkuTest extends TestCase
         $sekolah = ProfilSekolah::factory()->create();
         $user = User::factory()->sekolah($sekolah)->create();
 
+        TahunAnggaran::factory()->create(['status' => true]);
         TransaksiBku::factory()->create(['sekolah_id' => $sekolah->id]);
 
         $response = $this->actingAs($user)->get('/transaksi-bku');
@@ -30,6 +32,8 @@ class TransaksiBkuTest extends TestCase
         $sekolah = ProfilSekolah::factory()->create();
         $user = User::factory()->sekolah($sekolah)->create();
         $rkasItem = RkasItem::factory()->create(['sekolah_id' => $sekolah->id]);
+
+        TahunAnggaran::factory()->create(['status' => true]);
 
         $response = $this->actingAs($user)->post('/transaksi-bku', [
             'rkas_item_id' => $rkasItem->id,
@@ -58,10 +62,17 @@ class TransaksiBkuTest extends TestCase
         $sekolah2 = ProfilSekolah::factory()->create();
         $user = User::factory()->sekolah($sekolah1)->create();
 
-        TransaksiBku::factory()->create(['sekolah_id' => $sekolah1->id, 'no_bukti' => 'BKU-MILIK-1']);
-        TransaksiBku::factory()->create(['sekolah_id' => $sekolah2->id, 'no_bukti' => 'BKU-MILIK-2']);
+        $tahun = TahunAnggaran::factory()->create(['status' => true]);
+        $trans1 = TransaksiBku::factory()->create([
+            'sekolah_id' => $sekolah1->id, 'no_bukti' => 'BKU-MILIK-1',
+            'tahun_anggaran_id' => $tahun->id,
+        ]);
+        TransaksiBku::factory()->create([
+            'sekolah_id' => $sekolah2->id, 'no_bukti' => 'BKU-MILIK-2',
+            'tahun_anggaran_id' => $tahun->id,
+        ]);
 
-        $response = $this->actingAs($user)->get('/transaksi-bku');
+        $response = $this->actingAs($user)->get('/transaksi-bku?bulan=' . $trans1->bulan);
 
         $response->assertStatus(200);
         $response->assertSee('BKU-MILIK-1');

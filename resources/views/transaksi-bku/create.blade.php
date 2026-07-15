@@ -53,19 +53,8 @@
                             <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Item RKAS</h3>
                         </div>
                         <div class="mb-3">
-                            <select name="rkas_item_id" id="rkas_item_id" class="form-select">
-                                <option value="" data-tarif="0" data-program="" data-kode="" data-satuan="" data-sisa="">-- Pilih Item RKAS --</option>
-                                @foreach($rkasItems as $item)
-                                    <option value="{{ $item->id }}"
-                                        data-tarif="{{ $item->tarif }}"
-                                        data-program="{{ $item->program->nama ?? '-' }}"
-                                        data-kode="{{ $item->kodeRekening->kode ?? '-' }}"
-                                        data-satuan="{{ $item->satuan }}"
-                                        data-sisa="{{ $item->sisa }}"
-                                        {{ old('rkas_item_id') == $item->id ? 'selected' : '' }}>
-                                        {{ $item->no_urut }}. {{ $item->uraian }} (Sisa: Rp {{ number_format($item->sisa, 0, ',', '.') }})
-                                    </option>
-                                @endforeach
+                            <select name="rkas_item_id" id="rkas_item_id" class="form-select" style="width:100%">
+                                <option value="">-- Cari Item RKAS --</option>
                             </select>
                             @error('rkas_item_id')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -167,7 +156,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const rkasSelect = document.getElementById('rkas_item_id');
+            const rkasSelect = $('#rkas_item_id');
             const hargaInput = document.getElementById('harga_satuan');
             const volumeInput = document.getElementById('volume_barang');
             const jumlahInput = document.getElementById('jumlah');
@@ -189,18 +178,51 @@
             const countPenerimaan = {{ isset($countPenerimaan) ? $countPenerimaan : 1 }};
             const countPengeluaran = {{ isset($countPengeluaran) ? $countPengeluaran : 1 }};
 
+            const rkasData = {};
+
+            rkasSelect.select2({
+                ajax: {
+                    url: '{{ route("rkas-items.select2") }}',
+                    dataType: 'json',
+                    delay: 300,
+                    data: function(params) {
+                        return { q: params.term, page: params.page || 1 };
+                    },
+                    processResults: function(data) {
+                        data.results.forEach(function(item) {
+                            rkasData[item.id] = item;
+                        });
+                        return data;
+                    },
+                    cache: true
+                },
+                placeholder: '-- Cari Item RKAS --',
+                minimumInputLength: 0,
+                allowClear: true,
+                templateResult: function(item) {
+                    if (item.loading) return item.text;
+                    return item.text;
+                },
+                templateSelection: function(item) {
+                    if (item.id && rkasData[item.id]) {
+                        return rkasData[item.id].text;
+                    }
+                    return item.text || '-- Cari Item RKAS --';
+                }
+            });
+
             function generateNoBukti() {
-                const dateVal = tanggalInput.value;
+                var dateVal = tanggalInput.value;
                 if (!dateVal) return;
-                const dateObj = new Date(dateVal);
-                const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const y = dateObj.getFullYear();
+                var dateObj = new Date(dateVal);
+                var m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                var y = dateObj.getFullYear();
                 if (jenisSelect.value === 'penerimaan') {
-                    const num = String(countPenerimaan).padStart(3, '0');
-                    noBuktiInput.value = `BBU${num}/${npsnCode}/${m}/${y}`;
+                    var num = String(countPenerimaan).padStart(3, '0');
+                    noBuktiInput.value = 'BBU' + num + '/' + npsnCode + '/' + m + '/' + y;
                 } else {
-                    const num = String(countPengeluaran).padStart(3, '0');
-                    noBuktiInput.value = `BPU${num}/${npsnCode}/${m}/${y}`;
+                    var num = String(countPengeluaran).padStart(3, '0');
+                    noBuktiInput.value = 'BPU' + num + '/' + npsnCode + '/' + m + '/' + y;
                 }
             }
 
@@ -209,7 +231,7 @@
                     rowRkas.style.display = 'none';
                     rowKalkulator.style.display = 'none';
                     rowMetodePengadaan.style.display = 'none';
-                    rkasSelect.value = '';
+                    rkasSelect.val(null).trigger('change');
                     hargaInput.value = '';
                     hargaInput.dataset.val = 0;
                     volumeInput.value = '';
@@ -222,17 +244,13 @@
                 generateNoBukti();
             }
 
-            function showDetailCard(opt) {
-                const program = opt.getAttribute('data-program');
-                const kode = opt.getAttribute('data-kode');
-                const tarif = parseFloat(opt.getAttribute('data-tarif')) || 0;
-                const satuan = opt.getAttribute('data-satuan') || '-';
-                const sisa = parseFloat(opt.getAttribute('data-sisa')) || 0;
-                if (!program && !kode) { hideDetailCard(); return; }
-                detailProgram.textContent = program || '-';
-                detailKode.textContent = kode || '-';
-                detailTarif.textContent = tarif > 0 ? 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif) + ' / ' + satuan : '-';
-                detailSisa.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(sisa);
+            function showDetailCard(data) {
+                if (!data || (!data.program && !data.kode)) { hideDetailCard(); return; }
+                detailProgram.textContent = data.program || '-';
+                detailKode.textContent = data.kode || '-';
+                var tarifText = data.tarif > 0 ? 'Rp ' + new Intl.NumberFormat('id-ID').format(data.tarif) + ' / ' + (data.satuan || '-') : '-';
+                detailTarif.textContent = tarifText;
+                detailSisa.textContent = 'Rp ' + new Intl.NumberFormat('id-ID').format(data.sisa || 0);
                 detailCard.classList.remove('hidden');
             }
 
@@ -240,9 +258,8 @@
                 detailCard.classList.add('hidden');
             }
 
-            function updateHarga() {
-                const selectedOption = rkasSelect.options[rkasSelect.selectedIndex];
-                const tarif = selectedOption ? parseFloat(selectedOption.getAttribute('data-tarif')) || 0 : 0;
+            function updateHarga(data) {
+                var tarif = data ? (parseFloat(data.tarif) || 0) : 0;
                 if (tarif > 0) {
                     hargaInput.value = 'Rp ' + new Intl.NumberFormat('id-ID').format(tarif);
                     hargaInput.dataset.val = tarif;
@@ -251,29 +268,39 @@
                     hargaInput.dataset.val = 0;
                 }
                 kalkulasiJumlah();
-                if (selectedOption && selectedOption.value) {
-                    showDetailCard(selectedOption);
+                if (data) {
+                    showDetailCard(data);
                 } else {
                     hideDetailCard();
                 }
             }
 
             function kalkulasiJumlah() {
-                const tarif = parseFloat(hargaInput.dataset.val) || 0;
-                const volume = parseFloat(volumeInput.value) || 0;
+                var tarif = parseFloat(hargaInput.dataset.val) || 0;
+                var volume = parseFloat(volumeInput.value) || 0;
                 if (tarif > 0 && volume > 0 && jenisSelect.value === 'pengeluaran') {
                     jumlahInput.value = (tarif * volume).toFixed(2);
                 }
             }
 
+            rkasSelect.on('select2:select', function(e) {
+                var data = e.params.data;
+                if (data && data.id) {
+                    rkasData[data.id] = data;
+                }
+                updateHarga(data);
+            });
+
+            rkasSelect.on('select2:clear', function() {
+                updateHarga(null);
+            });
+
             jenisSelect.addEventListener('change', toggleVisibility);
-            rkasSelect.addEventListener('change', updateHarga);
             volumeInput.addEventListener('input', kalkulasiJumlah);
             tanggalInput.addEventListener('change', generateNoBukti);
 
             toggleVisibility();
             generateNoBukti();
-            if(rkasSelect.value) updateHarga();
         });
     </script>
 </x-app-layout>
