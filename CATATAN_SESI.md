@@ -178,4 +178,6 @@
 - **2026-07-16**: Filter sumber dana di semua halaman (migration + 8 controller + 4 export + 7 view dropdown + 4 PDF hidden) ✅
 - **2026-07-16**: RKAS per-sekolah untuk admin kecamatan (dropdown sekolah + kolom sekolah di tabel) ✅
 - **2026-07-16**: Relasi `sekolah()` di `RkasItem` model ✅
+- **2026-07-16**: Link RKAS di dashboard kecamatan ✅
+- **2026-07-16**: Sumber dana ditampilkan di dropdown Select2 form BKU ✅
 - **Tests**: 76/76 lulus (PerformanceTest di-exclude via `--exclude-group=performance`)
