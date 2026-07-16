@@ -26,6 +26,9 @@ class TahunAnggaran extends Model
 
     public static function getActive(): ?self
     {
+        if (app()->runningUnitTests()) {
+            return static::where('status', true)->first();
+        }
         return Cache::remember('tahun_anggaran_active', 86400, fn() =>
             static::where('status', true)->first()
         );
