@@ -525,8 +525,7 @@ class LaporanController extends Controller
             $sekolahs = ProfilSekolah::orderBy('nama')->get();
         }
         $tahunAnggaranAktif = TahunAnggaran::getActive();
-        $sumberDanas = SumberDana::orderBy('kode')->get();
-        return view('laporan.index', compact('sekolahs', 'tahunAnggaranAktif', 'sumberDanas'));
+        return view('laporan.index', compact('sekolahs', 'tahunAnggaranAktif'));
     }
 
     public function bkuWeb(Request $request)
