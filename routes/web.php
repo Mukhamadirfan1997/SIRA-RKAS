@@ -29,6 +29,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('laporan', [LaporanController::class, 'index'])->name('laporan.index');
 
+    Route::get('exports/{exportJob}/download', [\App\Http\Controllers\ExportController::class, 'download'])->name('exports.download');
+    Route::get('exports/{exportJob}/status', [\App\Http\Controllers\ExportController::class, 'status'])->name('exports.status');
+
     Route::get('rkas-items/select2', [RkasItemController::class, 'select2'])->name('rkas-items.select2');
 
     // -- Admin Kecamatan Routes --
@@ -65,13 +68,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('laporan/{sekolah}/rekap-siplah/export-excel', [LaporanController::class, 'adminRekapSiplahExportExcel'])->name('admin.laporan.rekap-siplah.export-excel');
     });
 
-    // -- Akun Sekolah Routes --
-    Route::middleware(['role:sekolah'])->group(function() {
+    // -- RKAS Routes (sekolah & admin-kecamatan) --
+    Route::middleware(['role:sekolah|admin-kecamatan'])->group(function() {
         Route::get('/rkas', [RkasController::class, 'index'])->name('rkas.index');
         Route::get('/rkas/{rkasItem}/edit', [RkasController::class, 'edit'])->name('rkas.edit');
         Route::put('/rkas/{rkasItem}', [RkasController::class, 'update'])->name('rkas.update');
         Route::delete('/rkas/{rkasItem}', [RkasController::class, 'destroy'])->name('rkas.destroy');
+    });
 
+    // -- Akun Sekolah Routes --
+    Route::middleware(['role:sekolah'])->group(function() {
         Route::get('import-rkas', [ImportRkasController::class, 'index'])->name('import-rkas.index');
         Route::post('import-rkas', [ImportRkasController::class, 'store'])->name('import-rkas.store');
         Route::get('import-rkas/status', [ImportRkasController::class, 'status'])->name('import-rkas.status');

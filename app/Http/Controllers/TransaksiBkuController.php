@@ -271,18 +271,11 @@ class TransaksiBkuController extends Controller
         $fileName = 'kwitansi-batch-' . now()->format('YmdHis') . '.pdf';
 
         foreach ($transaksis as $transaksi) {
-            $safeNo = str_replace(['/', '\\'], '-', $transaksi->no_bukti);
-            $filePath = 'kwitansi/kwitansi-' . $safeNo . '.pdf';
-
-            $kwitansiPdf = Pdf::loadView('transaksi-bku.kwitansi', ['transaksiBku' => $transaksi, 'profil' => $profil])
-                ->setPaper([0, 0, 609.4488, 935.433], 'portrait');
-            Storage::disk('public')->put($filePath, $kwitansiPdf->output());
-
             $kwitansi = $transaksi->kwitansi()->firstOrNew([]);
             $kwitansi->sekolah_id = $transaksi->sekolah_id;
             $kwitansi->nomor = $transaksi->no_bukti;
             $kwitansi->dicetak_pada = now();
-            $kwitansi->file_pdf_path = $filePath;
+            $kwitansi->file_pdf_path = 'kwitansi/' . $fileName;
             $kwitansi->save();
         }
 

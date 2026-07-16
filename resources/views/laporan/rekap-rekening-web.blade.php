@@ -74,6 +74,32 @@
         </div>
     </div>
 
+    @php
+        $recentExports = auth()->user()->exportJobs()->latest()->take(5)->get();
+    @endphp
+    @if($recentExports->isNotEmpty())
+    <div class="card mb-6 border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
+        <div class="card-body" style="padding:12px 20px;">
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Export Saya</span>
+                @foreach($recentExports as $ej)
+                    <span class="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full
+                        {{ $ej->isCompleted() ? 'bg-green-100 text-green-700' : ($ej->isFailed() ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700') }}">
+                        {{ $ej->type }}
+                        @if($ej->isCompleted())
+                            <a href="{{ route('exports.download', $ej->id) }}" class="underline font-semibold hover:text-green-900">Download</a>
+                        @elseif($ej->isFailed())
+                            <span title="{{ $ej->error_message }}">Gagal</span>
+                        @else
+                            <span class="export-spinner" data-id="{{ $ej->id }}">⏳</span>
+                        @endif
+                    </span>
+                @endforeach
+            </div>
+        </div>
+    </div>
+    @endif
+
     @if($subtotals->count() > 0)
     <div class="card mb-6 border-0 shadow-sm" style="border-radius:16px;overflow:hidden;">
         <div class="card-header" style="border-bottom:1px solid #f1f5f9;padding:16px 24px;background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);">
@@ -150,7 +176,11 @@
                     <tr>
                         <td colspan="6" class="text-center py-12 text-slate-400">
                             <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            {{ request('search') ? 'Tidak ada anggaran yang cocok dengan pencarian.' : 'Belum ada data anggaran.' }}
+                            @if(request('search'))
+                                Tidak ada anggaran yang cocok dengan pencarian.
+                            @else
+                                Belum ada data anggaran untuk bulan <strong>{{ \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') }}</strong> {{ $tahunAnggaranAktif?->tahun ?? '' }}. Coba pilih bulan lain atau pastikan data RKAS sudah diimpor.
+                            @endif
                         </td>
                     </tr>
                     @endforelse
@@ -178,5 +208,41 @@
         @endif
         window.open(url, '_blank');
     }
+
+    (function() {
+        var spinners = document.querySelectorAll('.export-spinner');
+        if (spinners.length === 0) return;
+        var ids = Array.from(spinners).map(function(el) { return el.dataset.id; });
+        var interval = setInterval(function() {
+            var allDone = true;
+            ids.forEach(function(id) {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '{{ url("exports") }}/' + id + '/status', true);
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        var data = JSON.parse(xhr.responseText);
+                        if (data.status === 'completed') {
+                            var spinner = document.querySelector('.export-spinner[data-id="' + id + '"]');
+                            if (spinner) {
+                                spinner.outerHTML = '<a href="{{ url("exports") }}/' + id + '/download" class="underline font-semibold text-green-700 hover:text-green-900">Download</a>';
+                            }
+                        } else if (data.status === 'failed') {
+                            var spinner = document.querySelector('.export-spinner[data-id="' + id + '"]');
+                            if (spinner) {
+                                spinner.outerHTML = '<span class="text-red-600" title="' + (data.error_message || 'Gagal') + '">Gagal</span>';
+                            }
+                        } else {
+                            allDone = false;
+                        }
+                    } else {
+                        allDone = false;
+                    }
+                };
+                xhr.onerror = function() { allDone = false; };
+                xhr.send();
+            });
+            if (allDone) clearInterval(interval);
+        }, 3000);
+    })();
     </script>
 </x-app-layout>

@@ -9,6 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
@@ -62,5 +63,10 @@ class User extends Authenticatable
     public function isAdminKecamatan(): bool
     {
         return $this->hasRole('admin-kecamatan');
+    }
+
+    public function exportJobs(): HasMany
+    {
+        return $this->hasMany(ExportJob::class);
     }
 }

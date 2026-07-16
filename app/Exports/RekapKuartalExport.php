@@ -48,34 +48,40 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
 
         $months = $this->bulanMonths;
 
+        $cases = [];
+        foreach ($months as $i => $b) {
+            $cases[] = "SUM(CASE WHEN transaksi_bku.bulan = {$b} THEN transaksi_bku.jumlah ELSE 0 END) as m{$i}";
+        }
+        $casesSql = implode(', ', $cases);
+
+        $realisasiSub = TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+            ->where('transaksi_bku.jenis', 'pengeluaran')
+            ->whereIn('transaksi_bku.bulan', $months)
+            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaran->id)
+            ->when($this->sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $this->sekolahId))
+            ->when($this->sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $this->sumberDanaId))
+            ->groupBy('transaksi_bku.rkas_item_id');
+
         $query = RkasItem::with(['kodeRekening.jenisBelanja', 'program'])
-            ->where('tahun_anggaran_id', $tahunAnggaran->id);
+            ->select('rkas_item.*')
+            ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
+            ->where('rkas_item.tahun_anggaran_id', $tahunAnggaran->id);
 
         if ($this->sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId);
+            $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $this->sekolahId);
         }
 
         if ($this->sumberDanaId) {
-            $query->where('sumber_dana_id', $this->sumberDanaId);
+            $query->where('rkas_item.sumber_dana_id', $this->sumberDanaId);
         }
 
-        $itemSub = (clone $query)->select('id');
-
-        $realisasiBatch = TransaksiBku::joinSub($itemSub, 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-            ->where('transaksi_bku.jenis', 'pengeluaran')
-            ->whereIn('transaksi_bku.bulan', $months)
-            ->selectRaw('transaksi_bku.rkas_item_id, transaksi_bku.bulan, SUM(transaksi_bku.jumlah) as total')
-            ->groupBy('transaksi_bku.rkas_item_id', 'transaksi_bku.bulan')
-            ->get()
-            ->groupBy('transaksi_bku.rkas_item_id');
-
         $rkasItems = $query->get()
-            ->map(function ($item) use ($months, $realisasiBatch) {
-                $perItem = $realisasiBatch[$item->id] ?? collect();
+            ->map(function ($item) use ($months) {
                 $realisasiPerBulan = [];
                 $totalRealisasi = 0;
-                foreach ($months as $bulan) {
-                    $r = (float) $perItem->where('bulan', $bulan)->sum('total');
+                foreach ($months as $i => $bulan) {
+                    $r = (float) ($item->{"m{$i}"} ?? 0);
                     $realisasiPerBulan[$bulan] = $r;
                     $totalRealisasi += $r;
                 }

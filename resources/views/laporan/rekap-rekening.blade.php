@@ -103,7 +103,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center" style="padding: 20px;">Belum ada data anggaran di bulan ini.</td>
+                    <td colspan="6" class="text-center" style="padding: 20px;">Belum ada data anggaran untuk bulan {{ $bulan ? \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') . ' ' . ($tahunAnggaranAktif?->tahun ?? date('Y')) : '-' }}.</td>
                 </tr>
             @endforelse
             

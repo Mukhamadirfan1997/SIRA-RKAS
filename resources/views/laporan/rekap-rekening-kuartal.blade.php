@@ -114,7 +114,7 @@
                 @endphp
             @empty
                 <tr>
-                    <td colspan="{{ 3 + count($bulanNames) + 1 }}" class="text-center" style="padding: 20px;">Belum ada data anggaran.</td>
+                    <td colspan="{{ 3 + count($bulanNames) + 1 }}" class="text-center" style="padding: 20px;">Belum ada data anggaran untuk Tribulan {{ $qLabel ?? '' }} ({{ $periodeLabel ?? '' }}) {{ $tahunAnggaranAktif?->tahun ?? '' }}.</td>
                 </tr>
             @endforelse
 

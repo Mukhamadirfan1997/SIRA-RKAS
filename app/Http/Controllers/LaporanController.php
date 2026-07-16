@@ -20,6 +20,10 @@ class LaporanController extends Controller
 {
     public function bku(Request $request)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $bulan = (int) $request->get('bulan', date('n'));
         $rawTanggal = $request->get('tanggal_cetak', '');
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
@@ -56,14 +60,14 @@ class LaporanController extends Controller
             $t->saldo_berjalan = $saldo;
         }
 
-        $totalPenerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+        $totals = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
             ->where('bulan', $bulan)
             ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'penerimaan')->sum('jumlah');
-        $totalPengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
-            ->where('bulan', $bulan)
-            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'pengeluaran')->sum('jumlah');
+            ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan")
+            ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran")
+            ->first();
+        $totalPenerimaan = (float) $totals->total_penerimaan;
+        $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $saldoAwal + $totalPenerimaan - $totalPengeluaran;
 
         if ($request->get('cetak') == 'pdf') {
@@ -86,6 +90,10 @@ class LaporanController extends Controller
 
     public function rekapRekening(Request $request)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $bulan = (int) $request->get('bulan', date('n'));
         $rawTanggal = $request->get('tanggal_cetak', '');
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
@@ -125,6 +133,7 @@ class LaporanController extends Controller
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $profil = auth()->user()->profilSekolah;
+        $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
         $tahunInput = $request->get('tahun');
@@ -135,16 +144,30 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new BkuExport($bulan, $namaSekolah, null, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'bku-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'BKU',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'bku-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\BkuExport::class,
+            [$bulan, $namaSekolah, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export BKU sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     public function rekapRekeningExportExcel(Request $request)
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $profil = auth()->user()->profilSekolah;
+        $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
         $tahunInput = $request->get('tahun');
@@ -155,14 +178,31 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new RekapRekeningExport($bulan, null, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-rekening-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap Realisasi',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-rekening-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapRekeningExport::class,
+            [$bulan, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap Realisasi sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     public function rekapKuartal(Request $request)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $bulan = (int) $request->get('bulan', date('n'));
         $rawTanggal = $request->get('tanggal_cetak', '');
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
@@ -216,6 +256,7 @@ class LaporanController extends Controller
         $bulan = (int) $request->get('bulan', date('n'));
         $kuartal = (int) ceil($bulan / 3);
         $profil = auth()->user()->profilSekolah;
+        $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
         $tahunInput = $request->get('tahun');
@@ -227,14 +268,30 @@ class LaporanController extends Controller
         }
         $sumberDanaId = $request->input('sumber_dana_id');
 
-        return Excel::download(
-            new RekapKuartalExport($kuartal, $namaSekolah, null, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-kuartal-q' . $kuartal . '-' . $namaSekolah . '.xlsx'
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap Tribulan Q' . $kuartal,
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-kuartal-q' . $kuartal . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapKuartalExport::class,
+            [$kuartal, $namaSekolah, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap Tribulan sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     public function rekapSiplah(Request $request)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $data = $this->prepareRekapSiplahData($request);
 
         if ($request->get('cetak') == 'pdf') {
@@ -258,6 +315,7 @@ class LaporanController extends Controller
     {
         $resolved = $this->resolveSiplahPeriode($request);
         $profil = auth()->user()->profilSekolah;
+        $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
         $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
@@ -269,14 +327,31 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new RekapSiplahExport($resolved['months'], null, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap SIPLAH',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapSiplahExport::class,
+            [$resolved['months'], $sekolahId, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap SIPLAH sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     public function adminRekapSiplah(Request $request, ProfilSekolah $sekolah)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $data = $this->prepareRekapSiplahData($request, $sekolah);
         $data['adminSekolahId'] = $sekolah->id;
         $data['isAdmin'] = true;
@@ -310,10 +385,23 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new RekapSiplahExport($resolved['months'], $sekolah->id, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap SIPLAH',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-siplah-' . $slug . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapSiplahExport::class,
+            [$resolved['months'], $sekolah->id, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap SIPLAH sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     private function resolveSiplahPeriode(Request $request): array
@@ -461,6 +549,10 @@ class LaporanController extends Controller
 
     public function adminBku(Request $request, ProfilSekolah $sekolah)
     {
+        if ($request->get('cetak') == 'pdf') {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $data = $this->prepareBkuData($request, $sekolah);
         $data['adminSekolahId'] = $sekolah->id;
         $data['isAdmin'] = true;
@@ -483,6 +575,10 @@ class LaporanController extends Controller
     public function adminRekapRekening(Request $request, ProfilSekolah $sekolah)
     {
         $isPdf = $request->get('cetak') == 'pdf';
+        if ($isPdf) {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $data = $this->prepareRekapRekeningData($request, $sekolah, $isPdf ? null : 50);
         $data['adminSekolahId'] = $sekolah->id;
         $data['isAdmin'] = true;
@@ -505,6 +601,10 @@ class LaporanController extends Controller
     public function adminRekapKuartal(Request $request, ProfilSekolah $sekolah)
     {
         $isPdf = $request->get('cetak') == 'pdf';
+        if ($isPdf) {
+            set_time_limit(0);
+            ini_set('memory_limit', -1);
+        }
         $data = $this->prepareRekapKuartalData($request, $sekolah, $isPdf ? null : 50);
         $data['adminSekolahId'] = $sekolah->id;
         $data['isAdmin'] = true;
@@ -536,10 +636,23 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new BkuExport($bulan, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'bku-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'BKU',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'bku-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\BkuExport::class,
+            [$bulan, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export BKU sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     public function adminRekapRekeningExportExcel(Request $request, ProfilSekolah $sekolah)
@@ -555,10 +668,23 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new RekapRekeningExport($bulan, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-rekening-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap Realisasi',
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-rekening-bulan-' . $bulan . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapRekeningExport::class,
+            [$bulan, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap Realisasi sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a> atau tunggu notifikasi.');
     }
 
     public function adminRekapKuartalExportExcel(Request $request, ProfilSekolah $sekolah)
@@ -575,10 +701,23 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        return Excel::download(
-            new RekapKuartalExport($kuartal, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId),
-            'rekap-kuartal-q' . $kuartal . '-' . $namaSekolah . '.xlsx'
+
+        $exportJob = \App\Models\ExportJob::create([
+            'user_id' => auth()->id(),
+            'type' => 'Rekap Tribulan Q' . $kuartal,
+            'status' => 'processing',
+        ]);
+
+        $filename = 'rekap-kuartal-q' . $kuartal . '-' . $namaSekolah . '.xlsx';
+
+        \App\Jobs\GenerateExportJob::dispatch(
+            $exportJob->id,
+            \App\Exports\RekapKuartalExport::class,
+            [$kuartal, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            $filename,
         );
+
+        return redirect()->back()->with('info', 'Export Rekap Tribulan sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
     private function prepareBkuData(Request $request, ?ProfilSekolah $profilOverride = null): array
@@ -626,14 +765,18 @@ class LaporanController extends Controller
             $t->saldo_berjalan = $saldo;
         }
 
-        $totalPenerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+        $totals = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
             ->where('bulan', $bulan)
-            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'penerimaan')->sum('jumlah');
-        $totalPengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
-            ->where('bulan', $bulan)
-            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'pengeluaran')->sum('jumlah');
+            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId));
+        if ($profilOverride) {
+            $totals->withoutGlobalScope('sekolah')->where('sekolah_id', $profilOverride->id);
+        }
+        $totals = $totals
+            ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan")
+            ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran")
+            ->first();
+        $totalPenerimaan = (float) $totals->total_penerimaan;
+        $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $saldoAwal + $totalPenerimaan - $totalPengeluaran;
 
         return compact('transaksis', 'profil', 'bulan', 'tahunAnggaranAktif',
@@ -643,43 +786,49 @@ class LaporanController extends Controller
 
     private function loadRekapRekeningItems(?TahunAnggaran $tahunAnggaranAktif, int $bulan, ?int $sekolahId = null, ?int $perPage = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
+        $sumberDanaId = request('sumber_dana_id');
+
+        $rencanaSub = RkasItemBulan::selectRaw('rkas_item_bulan.rkas_item_id, SUM(rkas_item_bulan.rencana) as total')
+            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'rkas_item_bulan.rkas_item_id')
+            ->where('rkas_item_bulan.bulan', $bulan)
+            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+            ->groupBy('rkas_item_bulan.rkas_item_id');
+
+        $realisasiSub = TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
+            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+            ->where('transaksi_bku.jenis', 'pengeluaran')
+            ->where('transaksi_bku.bulan', $bulan)
+            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+            ->groupBy('transaksi_bku.rkas_item_id');
+
         $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
-            ->where('tahun_anggaran_id', $tahunAnggaranAktif->id);
+            ->select('rkas_item.*')
+            ->selectRaw('COALESCE(rib.total, 0) as rencana_bulan')
+            ->selectRaw('COALESCE(tb.total, 0) as realisasi_bulan')
+            ->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('rkas_item.id', '=', 'rib.rkas_item_id'))
+            ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
+            ->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
 
         if ($sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('sekolah_id', $sekolahId);
+            $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $sekolahId);
         }
 
         $search = request('search');
         if ($search) {
-            $query->where('uraian', 'like', "%{$search}%");
+            $query->where('rkas_item.uraian', 'like', "%{$search}%");
         }
 
-        $sumberDanaId = request('sumber_dana_id');
         if ($sumberDanaId) {
-            $query->where('sumber_dana_id', $sumberDanaId);
+            $query->where('rkas_item.sumber_dana_id', $sumberDanaId);
         }
 
-        $filteredSub = fn() => (clone $query)->select('id');
-
-        $rencanaPerItem = RkasItemBulan::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('rkas_item_bulan.rkas_item_id', '=', 'ri_filtered.id'))
-            ->where('rkas_item_bulan.bulan', $bulan)
-            ->selectRaw('rkas_item_bulan.rkas_item_id, sum(rkas_item_bulan.rencana) as total')
-            ->groupBy('rkas_item_bulan.rkas_item_id')
-            ->pluck('total', 'rkas_item_id');
-
-        $realisasiPerItem = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-            ->where('transaksi_bku.jenis', 'pengeluaran')
-            ->where('transaksi_bku.bulan', $bulan)
-            ->selectRaw('transaksi_bku.rkas_item_id, sum(transaksi_bku.jumlah) as total')
-            ->groupBy('transaksi_bku.rkas_item_id')
-            ->pluck('total', 'rkas_item_id');
-
-        $mapFn = function ($item) use ($rencanaPerItem, $realisasiPerItem) {
-            $rencana = (float) ($rencanaPerItem[$item->id] ?? 0);
-            $realisasi = (float) ($realisasiPerItem[$item->id] ?? 0);
-            $item->rencana_bulan = $rencana;
-            $item->realisasi_bulan = $realisasi;
+        $mapFn = function ($item) {
+            $rencana = (float) ($item->rencana_bulan ?? 0);
+            $realisasi = (float) ($item->realisasi_bulan ?? 0);
             $item->sisa_bulan = $rencana - $realisasi;
             $item->persen = $rencana > 0 ? round(($realisasi / $rencana) * 100, 1) : 0;
             return $item;
@@ -694,39 +843,46 @@ class LaporanController extends Controller
 
     private function loadKuartalItems(?TahunAnggaran $tahunAnggaranAktif, array $bulanMonths, ?int $sekolahId = null, ?int $perPage = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
+        $cases = [];
+        foreach ($bulanMonths as $i => $b) {
+            $cases[] = "SUM(CASE WHEN transaksi_bku.bulan = {$b} THEN transaksi_bku.jumlah ELSE 0 END) as m{$i}";
+        }
+        $casesSql = implode(', ', $cases);
+
+        $sumberDanaId = request('sumber_dana_id');
+
+        $realisasiSub = TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+            ->where('transaksi_bku.jenis', 'pengeluaran')
+            ->whereIn('transaksi_bku.bulan', $bulanMonths)
+            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+            ->groupBy('transaksi_bku.rkas_item_id');
+
         $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
-            ->where('tahun_anggaran_id', $tahunAnggaranAktif->id);
+            ->select('rkas_item.*')
+            ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
+            ->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
 
         if ($sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('sekolah_id', $sekolahId);
+            $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $sekolahId);
         }
 
         $search = request('search');
         if ($search) {
-            $query->where('uraian', 'like', "%{$search}%");
+            $query->where('rkas_item.uraian', 'like', "%{$search}%");
         }
 
-        $sumberDanaId = request('sumber_dana_id');
         if ($sumberDanaId) {
-            $query->where('sumber_dana_id', $sumberDanaId);
+            $query->where('rkas_item.sumber_dana_id', $sumberDanaId);
         }
 
-        $filteredSub = fn() => (clone $query)->select('id');
-
-        $realisasiPerItem = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-            ->where('transaksi_bku.jenis', 'pengeluaran')
-            ->whereIn('transaksi_bku.bulan', $bulanMonths)
-            ->selectRaw('transaksi_bku.rkas_item_id, transaksi_bku.bulan, sum(transaksi_bku.jumlah) as total')
-            ->groupBy('transaksi_bku.rkas_item_id', 'transaksi_bku.bulan')
-            ->get()
-            ->groupBy('transaksi_bku.rkas_item_id');
-
-        $mapFn = function ($item) use ($realisasiPerItem, $bulanMonths) {
-            $itemRealisasi = $realisasiPerItem[$item->id] ?? collect();
+        $mapFn = function ($item) use ($bulanMonths) {
             $realisasiPerBulan = [];
             $totalRealisasi = 0;
-            foreach ($bulanMonths as $b) {
-                $r = (float) $itemRealisasi->where('bulan', $b)->sum('total');
+            foreach ($bulanMonths as $i => $b) {
+                $r = (float) ($item->{"m{$i}"} ?? 0);
                 $realisasiPerBulan[$b] = $r;
                 $totalRealisasi += $r;
             }
@@ -770,12 +926,21 @@ class LaporanController extends Controller
             $search = $request->get('search');
             $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
 
+            $rencanaSub = RkasItemBulan::selectRaw('rkas_item_id, SUM(rencana) as total')
+                ->where('bulan', $bulan)
+                ->groupBy('rkas_item_id');
+
+            $realisasiSub = TransaksiBku::selectRaw('rkas_item_id, SUM(jumlah) as total')
+                ->where('jenis', 'pengeluaran')
+                ->where('bulan', $bulan)
+                ->groupBy('rkas_item_id');
+
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
                 ->join('jenis_belanja as jb', 'jb.id', '=', 'mkr.jenis_belanja_id')
-                ->leftJoin('rkas_item_bulan as rib', fn($j) => $j->on('rib.rkas_item_id', '=', 'ri.id')->where('rib.bulan', $bulan))
-                ->leftJoin('transaksi_bku as tb', fn($j) => $j->on('tb.rkas_item_id', '=', 'ri.id')->where('tb.jenis', 'pengeluaran')->where('tb.bulan', $bulan))
-                ->selectRaw('jb.nama, COALESCE(SUM(rib.rencana), 0) as total_rencana, COALESCE(SUM(tb.jumlah), 0) as total_realisasi')
+                ->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('ri.id', '=', 'rib.rkas_item_id'))
+                ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'))
+                ->selectRaw('jb.nama, COALESCE(SUM(rib.total), 0) as total_rencana, COALESCE(SUM(tb.total), 0) as total_realisasi')
                 ->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
@@ -849,25 +1014,32 @@ class LaporanController extends Controller
             $search = $request->get('search');
             $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
 
+            $cases = [];
+            foreach ($bulanMonths as $i => $b) {
+                $cases[] = "SUM(CASE WHEN tb.bulan = {$b} THEN tb.jumlah ELSE 0 END) as m{$i}";
+            }
+            $casesSql = implode(', ', $cases);
+
+            $realisasiSub = TransaksiBku::selectRaw("rkas_item_id, {$casesSql}, SUM(jumlah) as total")
+                ->where('jenis', 'pengeluaran')
+                ->whereIn('bulan', $bulanMonths)
+                ->groupBy('rkas_item_id');
+
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
                 ->join('jenis_belanja as jb', 'jb.id', '=', 'mkr.jenis_belanja_id')
+                ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'))
                 ->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
                 ->when($sumberDanaId, fn($q) => $q->where('ri.sumber_dana_id', $sumberDanaId))
                 ->selectRaw('jb.nama')
                 ->selectRaw("
-                    COALESCE(SUM(CASE WHEN tb.bulan = {$bulanMonths[0]} THEN tb.jumlah ELSE 0 END), 0) as m0,
-                    COALESCE(SUM(CASE WHEN tb.bulan = {$bulanMonths[1]} THEN tb.jumlah ELSE 0 END), 0) as m1,
-                    COALESCE(SUM(CASE WHEN tb.bulan = {$bulanMonths[2]} THEN tb.jumlah ELSE 0 END), 0) as m2,
-                    COALESCE(SUM(tb.jumlah), 0) as total
+                    COALESCE(SUM(tb.m0), 0) as m0,
+                    COALESCE(SUM(tb.m1), 0) as m1,
+                    COALESCE(SUM(tb.m2), 0) as m2,
+                    COALESCE(SUM(tb.total), 0) as total
                 ")
-                ->leftJoin('transaksi_bku as tb', function ($join) use ($bulanMonths) {
-                    $join->on('tb.rkas_item_id', '=', 'ri.id')
-                         ->where('tb.jenis', '=', 'pengeluaran')
-                         ->whereIn('tb.bulan', $bulanMonths);
-                })
                 ->groupBy('jb.nama')
                 ->orderBy('jb.nama')
                 ->get();
