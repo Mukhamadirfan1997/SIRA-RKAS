@@ -36,6 +36,17 @@
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Ketik uraian anggaran..." class="form-input" style="border-radius:10px;border-color:#e2e8f0;padding:8px 12px;">
                 </div>
                 <div class="min-w-[160px]">
+                    <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Program</label>
+                    <select name="program_id" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;min-width:160px;">
+                        <option value="">Semua Program</option>
+                        @foreach($programs ?? [] as $program)
+                            <option value="{{ $program->id }}" {{ request('program_id', $programId ?? '') == $program->id ? 'selected' : '' }}>
+                                {{ $program->kode }} - {{ $program->nama }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="min-w-[160px]">
                     <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Sumber Dana</label>
                     <select name="sumber_dana_id" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;min-width:160px;">
                         <option value="">Semua Sumber Dana</option>

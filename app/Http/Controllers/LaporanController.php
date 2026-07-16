@@ -6,6 +6,7 @@ use App\Exports\BkuExport;
 use App\Exports\RekapRekeningExport;
 use App\Exports\RekapKuartalExport;
 use App\Exports\RekapSiplahExport;
+use App\Models\MasterProgram;
 use App\Models\ProfilSekolah;
 use App\Models\SumberDana;
 use App\Models\TransaksiBku;
@@ -13,6 +14,7 @@ use App\Models\RkasItem;
 use App\Models\RkasItemBulan;
 use App\Models\TahunAnggaran;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -917,7 +919,9 @@ class LaporanController extends Controller
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
+        $programId = $request->input('program_id');
         $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $programs = Cache::remember('master_programs', 86400, fn() => MasterProgram::all());
 
         $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
         $search = $request->get('search');
@@ -929,6 +933,7 @@ class LaporanController extends Controller
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->when($programId, fn($q) => $q->where('ri_sub.program_id', $programId))
                 ->groupBy('rkas_item_bulan.rkas_item_id')
             : null;
 
@@ -940,6 +945,7 @@ class LaporanController extends Controller
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->when($programId, fn($q) => $q->where('ri_sub.program_id', $programId))
                 ->groupBy('transaksi_bku.rkas_item_id')
             : null;
 
@@ -962,6 +968,7 @@ class LaporanController extends Controller
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
                 ->when($sumberDanaId, fn($q) => $q->where('ri.sumber_dana_id', $sumberDanaId))
+                ->when($programId, fn($q) => $q->where('ri.program_id', $programId))
                 ->groupBy('jb.nama')
                 ->orderBy('jb.nama')
                 ->get();
@@ -986,11 +993,11 @@ class LaporanController extends Controller
         if ($perPage) {
             return compact('rkasItems', 'profil', 'bulan', 'tahunAnggaranAktif',
                 'subtotals', 'grandTotalRencana', 'grandTotalRealisasi', 'grandTotalSisa', 'grandTotalPersen', 'tahunList',
-                'sumberDanaList', 'sumberDanaId');
+                'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
         }
 
         $grouped = $rkasItems->groupBy(fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori');
-        return compact('grouped', 'rkasItems', 'profil', 'bulan', 'tahunAnggaranAktif', 'tahunList', 'sumberDanaList', 'sumberDanaId');
+        return compact('grouped', 'rkasItems', 'profil', 'bulan', 'tahunAnggaranAktif', 'tahunList', 'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
     }
 
     private function prepareRekapKuartalData(Request $request, ?ProfilSekolah $profilOverride = null, ?int $perPage = null): array
@@ -1017,7 +1024,9 @@ class LaporanController extends Controller
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
+        $programId = $request->input('program_id');
         $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $programs = Cache::remember('master_programs', 86400, fn() => MasterProgram::all());
 
         $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
 
@@ -1035,6 +1044,7 @@ class LaporanController extends Controller
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->when($programId, fn($q) => $q->where('ri_sub.program_id', $programId))
                 ->groupBy('transaksi_bku.rkas_item_id')
             : null;
 
@@ -1057,6 +1067,7 @@ class LaporanController extends Controller
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
                 ->when($sumberDanaId, fn($q) => $q->where('ri.sumber_dana_id', $sumberDanaId))
+                ->when($programId, fn($q) => $q->where('ri.program_id', $programId))
                 ->selectRaw('jb.nama')
                 ->selectRaw("
                     COALESCE(SUM(tb.m0), 0) as m0,
@@ -1086,7 +1097,7 @@ class LaporanController extends Controller
             return compact('quarterlyItems', 'profil', 'tahunAnggaranAktif',
                 'qLabel', 'periodeLabel', 'bulanMonths', 'bulanNames', 'kuartal', 'bulan',
                 'subtotals', 'grandTotalPerBulan', 'grandTotalAll', 'tahunList',
-                'sumberDanaList', 'sumberDanaId');
+                'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
         }
 
         $grouped = $quarterlyItems->groupBy(
@@ -1094,6 +1105,6 @@ class LaporanController extends Controller
         );
         return compact('grouped', 'profil', 'tahunAnggaranAktif',
             'qLabel', 'periodeLabel', 'bulanMonths', 'bulanNames', 'kuartal', 'bulan', 'tahunList',
-            'sumberDanaList', 'sumberDanaId');
+            'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
     }
 }
