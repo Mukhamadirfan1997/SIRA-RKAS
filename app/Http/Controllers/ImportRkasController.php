@@ -12,7 +12,7 @@ class ImportRkasController extends Controller
 {
     public function index()
     {
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $logs = collect();
         if (auth()->check() && auth()->user()->sekolah_id) {
             $logs = ImportLog::where('sekolah_id', auth()->user()->sekolah_id)
@@ -32,7 +32,7 @@ class ImportRkasController extends Controller
             'sumber_dana_id' => 'required|exists:sumber_dana,id',
         ]);
 
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         if (!$tahunAnggaranAktif) {
             return back()->with('error', 'Tahun anggaran aktif tidak ditemukan.');
         }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TahunAnggaran;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class TahunAnggaranController extends Controller
@@ -48,12 +49,14 @@ class TahunAnggaranController extends Controller
 
     public function setActive(TahunAnggaran $tahunAnggaran)
     {
-        $sebelumnya = TahunAnggaran::where('status', true)->first();
+        $sebelumnya = TahunAnggaran::getActive();
 
         DB::transaction(function () use ($tahunAnggaran) {
             TahunAnggaran::query()->update(['status' => false]);
             $tahunAnggaran->update(['status' => true]);
         });
+
+        Cache::forget('tahun_anggaran_active');
 
         $pesan = 'Tahun anggaran ' . $tahunAnggaran->tahun . ' berhasil diaktifkan.';
         if ($sebelumnya) {
@@ -70,6 +73,7 @@ class TahunAnggaranController extends Controller
         }
 
         $tahunAnggaran->delete();
+        Cache::forget('tahun_anggaran_active');
         return redirect()->route('tahun-anggaran.index')->with('success', 'Tahun anggaran berhasil dihapus.');
     }
 }

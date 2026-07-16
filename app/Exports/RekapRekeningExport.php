@@ -30,7 +30,7 @@ class RekapRekeningExport implements FromCollection, WithHeadings, WithTitle, Wi
     {
         $tahunAnggaranAktif = $this->tahunAnggaranId
             ? TahunAnggaran::find($this->tahunAnggaranId)
-            : TahunAnggaran::where('status', true)->first();
+            : TahunAnggaran::getActive();
         if (!$tahunAnggaranAktif) {
             return collect();
         }

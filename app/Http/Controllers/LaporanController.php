@@ -29,7 +29,7 @@ class LaporanController extends Controller
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -99,7 +99,7 @@ class LaporanController extends Controller
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -135,7 +135,7 @@ class LaporanController extends Controller
         $profil = auth()->user()->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -169,7 +169,7 @@ class LaporanController extends Controller
         $profil = auth()->user()->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -218,7 +218,7 @@ class LaporanController extends Controller
         $qLabel = 'Q' . $kuartal;
         $periodeLabel = implode(' s.d. ', $bulanNames);
 
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -258,7 +258,7 @@ class LaporanController extends Controller
         $profil = auth()->user()->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -318,7 +318,7 @@ class LaporanController extends Controller
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -376,7 +376,7 @@ class LaporanController extends Controller
         $resolved = $this->resolveSiplahPeriode($request);
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
         $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -434,7 +434,7 @@ class LaporanController extends Controller
         $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -524,7 +524,7 @@ class LaporanController extends Controller
         if (auth()->user()->isAdminKecamatan()) {
             $sekolahs = ProfilSekolah::orderBy('nama')->get();
         }
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $sumberDanas = SumberDana::orderBy('kode')->get();
         return view('laporan.index', compact('sekolahs', 'tahunAnggaranAktif', 'sumberDanas'));
     }
@@ -627,7 +627,7 @@ class LaporanController extends Controller
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -659,7 +659,7 @@ class LaporanController extends Controller
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -692,7 +692,7 @@ class LaporanController extends Controller
         $bulan = (int) $request->get('bulan', date('n'));
         $kuartal = (int) ceil($bulan / 3);
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -723,7 +723,7 @@ class LaporanController extends Controller
     private function prepareBkuData(Request $request, ?ProfilSekolah $profilOverride = null): array
     {
         $bulan = (int) $request->get('bulan', date('n'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -784,26 +784,30 @@ class LaporanController extends Controller
             'sumberDanaList', 'sumberDanaId');
     }
 
-    private function loadRekapRekeningItems(?TahunAnggaran $tahunAnggaranAktif, int $bulan, ?int $sekolahId = null, ?int $perPage = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
+    private function loadRekapRekeningItems(?TahunAnggaran $tahunAnggaranAktif, int $bulan, ?int $sekolahId = null, ?int $perPage = null, $rencanaSub = null, $realisasiSub = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $sumberDanaId = request('sumber_dana_id');
 
-        $rencanaSub = RkasItemBulan::selectRaw('rkas_item_bulan.rkas_item_id, SUM(rkas_item_bulan.rencana) as total')
-            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'rkas_item_bulan.rkas_item_id')
-            ->where('rkas_item_bulan.bulan', $bulan)
-            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
-            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
-            ->groupBy('rkas_item_bulan.rkas_item_id');
+        if ($rencanaSub === null) {
+            $rencanaSub = RkasItemBulan::selectRaw('rkas_item_bulan.rkas_item_id, SUM(rkas_item_bulan.rencana) as total')
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'rkas_item_bulan.rkas_item_id')
+                ->where('rkas_item_bulan.bulan', $bulan)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('rkas_item_bulan.rkas_item_id');
+        }
 
-        $realisasiSub = TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
-            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
-            ->where('transaksi_bku.jenis', 'pengeluaran')
-            ->where('transaksi_bku.bulan', $bulan)
-            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
-            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
-            ->groupBy('transaksi_bku.rkas_item_id');
+        if ($realisasiSub === null) {
+            $realisasiSub = TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+                ->where('transaksi_bku.jenis', 'pengeluaran')
+                ->where('transaksi_bku.bulan', $bulan)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('transaksi_bku.rkas_item_id');
+        }
 
         $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
             ->select('rkas_item.*')
@@ -841,7 +845,7 @@ class LaporanController extends Controller
         return $query->get()->map($mapFn);
     }
 
-    private function loadKuartalItems(?TahunAnggaran $tahunAnggaranAktif, array $bulanMonths, ?int $sekolahId = null, ?int $perPage = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
+    private function loadKuartalItems(?TahunAnggaran $tahunAnggaranAktif, array $bulanMonths, ?int $sekolahId = null, ?int $perPage = null, $realisasiSub = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $cases = [];
         foreach ($bulanMonths as $i => $b) {
@@ -851,14 +855,16 @@ class LaporanController extends Controller
 
         $sumberDanaId = request('sumber_dana_id');
 
-        $realisasiSub = TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
-            ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
-            ->where('transaksi_bku.jenis', 'pengeluaran')
-            ->whereIn('transaksi_bku.bulan', $bulanMonths)
-            ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-            ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
-            ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
-            ->groupBy('transaksi_bku.rkas_item_id');
+        if ($realisasiSub === null) {
+            $realisasiSub = TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+                ->where('transaksi_bku.jenis', 'pengeluaran')
+                ->whereIn('transaksi_bku.bulan', $bulanMonths)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('transaksi_bku.rkas_item_id');
+        }
 
         $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
             ->select('rkas_item.*')
@@ -901,7 +907,7 @@ class LaporanController extends Controller
     private function prepareRekapRekeningData(Request $request, ?ProfilSekolah $profilOverride = null, ?int $perPage = null): array
     {
         $bulan = (int) $request->get('bulan', date('n'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -914,27 +920,39 @@ class LaporanController extends Controller
         $sumberDanaId = $request->input('sumber_dana_id');
         $profil = $profilOverride ?? auth()->user()->profilSekolah;
 
+        $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
+        $search = $request->get('search');
+
+        $rencanaSub = $tahunAnggaranAktif
+            ? RkasItemBulan::selectRaw('rkas_item_bulan.rkas_item_id, SUM(rkas_item_bulan.rencana) as total')
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'rkas_item_bulan.rkas_item_id')
+                ->where('rkas_item_bulan.bulan', $bulan)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('rkas_item_bulan.rkas_item_id')
+            : null;
+
+        $realisasiSub = $tahunAnggaranAktif
+            ? TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+                ->where('transaksi_bku.jenis', 'pengeluaran')
+                ->where('transaksi_bku.bulan', $bulan)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('transaksi_bku.rkas_item_id')
+            : null;
+
         $rkasItems = $tahunAnggaranAktif
-            ? $this->loadRekapRekeningItems($tahunAnggaranAktif, $bulan, $profilOverride?->id, $perPage)
+            ? $this->loadRekapRekeningItems($tahunAnggaranAktif, $bulan, $sekolahId, $perPage, $rencanaSub, $realisasiSub)
             : ($perPage ? new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage) : collect());
 
         $subtotals = collect();
         $grandTotalRencana = 0;
         $grandTotalRealisasi = 0;
 
-        if ($tahunAnggaranAktif && $perPage) {
-            $search = $request->get('search');
-            $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
-
-            $rencanaSub = RkasItemBulan::selectRaw('rkas_item_id, SUM(rencana) as total')
-                ->where('bulan', $bulan)
-                ->groupBy('rkas_item_id');
-
-            $realisasiSub = TransaksiBku::selectRaw('rkas_item_id, SUM(jumlah) as total')
-                ->where('jenis', 'pengeluaran')
-                ->where('bulan', $bulan)
-                ->groupBy('rkas_item_id');
-
+        if ($tahunAnggaranAktif && $perPage && $rencanaSub && $realisasiSub) {
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
                 ->join('jenis_belanja as jb', 'jb.id', '=', 'mkr.jenis_belanja_id')
@@ -989,7 +1007,7 @@ class LaporanController extends Controller
         $qLabel = 'Q' . $kuartal;
         $periodeLabel = implode(' s.d. ', $bulanNames);
 
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -1002,28 +1020,35 @@ class LaporanController extends Controller
         $sumberDanaId = $request->input('sumber_dana_id');
         $profil = $profilOverride ?? auth()->user()->profilSekolah;
 
-        $quarterlyItems = $tahunAnggaranAktif
-            ? $this->loadKuartalItems($tahunAnggaranAktif, $bulanMonths, $profilOverride?->id, $perPage)
+        $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
+
+        $cases = [];
+        foreach ($bulanMonths as $i => $b) {
+            $cases[] = "SUM(CASE WHEN transaksi_bku.bulan = {$b} THEN transaksi_bku.jumlah ELSE 0 END) as m{$i}";
+        }
+        $casesSql = implode(', ', $cases);
+
+        $realisasiSub = $tahunAnggaranAktif
+            ? TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+                ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
+                ->where('transaksi_bku.jenis', 'pengeluaran')
+                ->whereIn('transaksi_bku.bulan', $bulanMonths)
+                ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
+                ->groupBy('transaksi_bku.rkas_item_id')
+            : null;
+
+        $quarterlyItems = $tahunAnggaranAktif && $realisasiSub
+            ? $this->loadKuartalItems($tahunAnggaranAktif, $bulanMonths, $sekolahId, $perPage, $realisasiSub)
             : ($perPage ? new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage) : collect());
 
         $subtotals = collect();
         $grandTotalPerBulan = array_fill_keys($bulanMonths, 0);
         $grandTotalAll = 0;
 
-        if ($tahunAnggaranAktif && $perPage) {
+        if ($tahunAnggaranAktif && $perPage && $realisasiSub) {
             $search = $request->get('search');
-            $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
-
-            $cases = [];
-            foreach ($bulanMonths as $i => $b) {
-                $cases[] = "SUM(CASE WHEN tb.bulan = {$b} THEN tb.jumlah ELSE 0 END) as m{$i}";
-            }
-            $casesSql = implode(', ', $cases);
-
-            $realisasiSub = TransaksiBku::selectRaw("rkas_item_id, {$casesSql}, SUM(jumlah) as total")
-                ->where('jenis', 'pengeluaran')
-                ->whereIn('bulan', $bulanMonths)
-                ->groupBy('rkas_item_id');
 
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
@@ -1038,7 +1063,7 @@ class LaporanController extends Controller
                     COALESCE(SUM(tb.m0), 0) as m0,
                     COALESCE(SUM(tb.m1), 0) as m1,
                     COALESCE(SUM(tb.m2), 0) as m2,
-                    COALESCE(SUM(tb.total), 0) as total
+                    COALESCE(SUM(tb.total_all), 0) as total
                 ")
                 ->groupBy('jb.nama')
                 ->orderBy('jb.nama')

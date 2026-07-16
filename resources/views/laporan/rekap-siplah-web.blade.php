@@ -18,7 +18,7 @@
                         <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Periode</label>
                         <form id="filter-form" class="flex items-end gap-2">
                             <select id="tahun-select" class="form-select" style="border-radius:10px;border-color:#e2e8f0;min-width:110px;" onchange="applyFilter()">
-                                @foreach($tahunList ?? [TahunAnggaran::where('status', true)->first()] as $t)
+                                @foreach($tahunList ?? [TahunAnggaran::getActive()] as $t)
                                     <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
                                         {{ $t->tahun }}
                                     </option>

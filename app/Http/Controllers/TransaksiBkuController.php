@@ -18,7 +18,7 @@ class TransaksiBkuController extends Controller
     public function index(Request $request)
     {
         $bulan = $request->input('bulan', date('n'));
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
 
         $tahunInput = $request->input('tahun');
@@ -75,14 +75,15 @@ class TransaksiBkuController extends Controller
         }
 
         $bulanQuery = $bulan !== '' ? (int) $bulan : null;
-        $totalPenerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+        $totals = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
             ->when($bulanQuery, fn($q) => $q->where('bulan', $bulanQuery))
             ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'penerimaan')->sum('jumlah');
-        $totalPengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
-            ->when($bulanQuery, fn($q) => $q->where('bulan', $bulanQuery))
-            ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
-            ->where('jenis', 'pengeluaran')->sum('jumlah');
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan,
+                COALESCE(SUM(CASE WHEN LOWER(jenis) = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran
+            ")->first();
+        $totalPenerimaan = (float) $totals->total_penerimaan;
+        $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $totalPenerimaan - $totalPengeluaran;
 
         $belumMetodePengadaan = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)

@@ -19,7 +19,7 @@ class RkasController extends Controller
     {
         $bulan = $request->get('bulan', date('n'));
         $programId = $request->get('program_id');
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -97,7 +97,7 @@ class RkasController extends Controller
 
     public function edit(RkasItem $rkasItem)
     {
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $masterPrograms = MasterProgram::orderBy('kode')->get();
         $masterKodeRekenings = MasterKodeRekening::orderBy('kode')->get();
         $sumberDanas = SumberDana::orderBy('kode')->get();

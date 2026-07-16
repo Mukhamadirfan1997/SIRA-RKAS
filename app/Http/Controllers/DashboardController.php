@@ -25,7 +25,7 @@ class DashboardController extends Controller
         }
 
         $pageTitle = 'Dashboard Sekolah';
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
@@ -67,45 +67,40 @@ class DashboardController extends Controller
                 $baseQuery->where('sumber_dana_id', $sumberDanaId);
             }
 
-            $filteredSub = fn() => (clone $baseQuery)->select('id');
-            $chartSub = fn() => (clone $baseQuery)->select('id', 'kode_rekening_id');
-
-            $joinFiltered = function ($table) use ($filteredSub) {
-                return RkasItemBulan::joinSub($filteredSub(), 'ri_filtered', function ($join) use ($table) {
-                    $join->on($table . '.rkas_item_id', '=', 'ri_filtered.id');
-                });
-            };
+            $filteredIds = $baseQuery->pluck('id');
 
             if ($bulan) {
-                $totalRencana = $joinFiltered('rkas_item_bulan')
-                    ->where('rkas_item_bulan.bulan', $bulan)
-                    ->sum('rkas_item_bulan.rencana');
+                $totalRencana = RkasItemBulan::whereIn('rkas_item_id', $filteredIds)
+                    ->where('bulan', $bulan)
+                    ->sum('rencana');
 
-                $totalRealisasi = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-                    ->where('transaksi_bku.jenis', 'pengeluaran')
-                    ->where('transaksi_bku.bulan', $bulan)
-                    ->sum('transaksi_bku.jumlah');
+                $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                    ->where('jenis', 'pengeluaran')
+                    ->where('bulan', $bulan)
+                    ->sum('jumlah');
             } else {
-                $totalRencana = RkasItem::whereIn('id', $filteredSub())->sum('jumlah');
+                $totalRencana = RkasItem::whereIn('id', $filteredIds)->sum('jumlah');
 
-                $totalRealisasi = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-                    ->where('transaksi_bku.jenis', 'pengeluaran')
-                    ->sum('transaksi_bku.jumlah');
+                $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                    ->where('jenis', 'pengeluaran')
+                    ->sum('jumlah');
             }
 
-            $chartData = RkasItem::fromSub($chartSub(), 'ri_filtered')
-                ->join('transaksi_bku', 'ri_filtered.id', '=', 'transaksi_bku.rkas_item_id')
-                ->join('master_kode_rekening', function ($join) {
-                    $join->on('master_kode_rekening.id', '=', 'ri_filtered.kode_rekening_id');
-                })
+            $chartData = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                ->where('jenis', 'pengeluaran')
+                ->join('rkas_item', 'transaksi_bku.rkas_item_id', '=', 'rkas_item.id')
+                ->join('master_kode_rekening', 'rkas_item.kode_rekening_id', '=', 'master_kode_rekening.id')
                 ->join('jenis_belanja', 'master_kode_rekening.jenis_belanja_id', '=', 'jenis_belanja.id')
-                ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->selectRaw('jenis_belanja.nama as label, sum(transaksi_bku.jumlah) as total')
                 ->groupBy('jenis_belanja.nama')
                 ->get();
 
-            $chartLabels = $chartData->pluck('label')->toArray();
-            $chartValues = $chartData->pluck('total')->toArray();
+            $chartLabels = [];
+            $chartValues = [];
+            foreach ($chartData as $d) {
+                $chartLabels[] = $d->label;
+                $chartValues[] = (float) $d->total;
+            }
 
             $rkasItems = (clone $baseQuery)
                 ->with(['program', 'kodeRekening.jenisBelanja', 'transaksiBkus' => function ($q) use ($bulan) {
@@ -145,8 +140,8 @@ class DashboardController extends Controller
 
         $realisasiPerBulan = array_fill(1, 12, 0);
         if ($tahunAnggaranAktif) {
-            $byBulan = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-                ->where('transaksi_bku.jenis', 'pengeluaran')
+            $byBulan = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                ->where('jenis', 'pengeluaran')
                 ->selectRaw('transaksi_bku.bulan, sum(transaksi_bku.jumlah) as total')
                 ->groupBy('transaksi_bku.bulan')
                 ->pluck('total', 'bulan');
@@ -163,15 +158,15 @@ class DashboardController extends Controller
         $recentTransaksi = collect();
         $transaksiBulanIni = 0;
         if ($tahunAnggaranAktif) {
-            $recentTransaksi = TransaksiBku::with(['rkasItem.program', 'rkasItem.kodeRekening'])
-                ->joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-                ->where('transaksi_bku.jenis', 'pengeluaran')
-                ->orderByDesc('transaksi_bku.created_at')
+            $recentTransaksi = TransaksiBku::with(['rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja'])
+                ->whereIn('rkas_item_id', $filteredIds)
+                ->where('jenis', 'pengeluaran')
+                ->orderByDesc('created_at')
                 ->limit(5)
                 ->get();
 
-            $transaksiBulanIni = TransaksiBku::joinSub($filteredSub(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
-                ->where('transaksi_bku.bulan', (int) Carbon::now()->month)
+            $transaksiBulanIni = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                ->where('bulan', (int) Carbon::now()->month)
                 ->count();
         }
 
@@ -204,7 +199,7 @@ class DashboardController extends Controller
         $pageTitle = 'Dashboard Kecamatan';
         $bulan = $request->get('bulan', date('n'));
         $statusFilter = $request->get('status', '');
-        $tahunAnggaranAktif = TahunAnggaran::where('status', true)->first();
+        $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();

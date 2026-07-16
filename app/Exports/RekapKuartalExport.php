@@ -41,7 +41,7 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
     {
         $tahunAnggaran = $this->tahunAnggaranId
             ? TahunAnggaran::find($this->tahunAnggaranId)
-            : TahunAnggaran::where('status', true)->first();
+            : TahunAnggaran::getActive();
         if (!$tahunAnggaran) {
             return [[]];
         }

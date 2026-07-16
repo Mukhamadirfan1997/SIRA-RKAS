@@ -14,7 +14,7 @@
                 <div class="min-w-[140px]">
                     <label class="form-label" style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Tahun</label>
                     <select name="tahun" class="form-select" onchange="this.form.submit()" style="border-radius:10px;border-color:#e2e8f0;">
-                        @foreach($tahunList ?? [TahunAnggaran::where('status', true)->first()] as $t)
+                        @foreach($tahunList ?? [TahunAnggaran::getActive()] as $t)
                             <option value="{{ $t->tahun }}" {{ $tahunAnggaranAktif->tahun == $t->tahun ? 'selected' : '' }}>
                                 {{ $t->tahun }}
                             </option>

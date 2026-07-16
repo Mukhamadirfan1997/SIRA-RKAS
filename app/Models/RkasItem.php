@@ -72,13 +72,5 @@ class RkasItem extends Model
         return $this->hasMany(RkasItemBulan::class, 'rkas_item_id');
     }
 
-    public function getRealisasiAttribute()
-    {
-        return $this->transaksiBkus()->where('jenis', 'pengeluaran')->sum('jumlah');
-    }
 
-    public function getSisaAttribute()
-    {
-        return $this->jumlah - $this->realisasi;
-    }
 }
