@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use App\Models\ImportLog;
 use App\Models\TahunAnggaran;
@@ -78,6 +79,8 @@ class ImportRkasController extends Controller
         if ($uploadedCount == 0) {
             return back()->with('error', 'Tidak ada file yang diproses. ' . (!empty($skippedFiles) ? 'Semua file terlalu besar (max 5MB).' : 'Tidak ada file yang dipilih/diupload.'));
         }
+
+        Cache::increment('dash_ver_' . auth()->id());
 
         return back()->with('success', $message);
     }

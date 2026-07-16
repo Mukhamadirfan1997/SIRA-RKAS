@@ -25,3 +25,6 @@ Homestead.yaml
 Thumbs.db
 *.rdb
 dump.rdb
+artisan_serve.*
+/CATATAN_SESI.md
+/planning.md

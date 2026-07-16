@@ -50,56 +50,123 @@ class DashboardController extends Controller
         $rkasItems = collect();
 
         if ($tahunAnggaranAktif) {
-            $baseQuery = $tahunAnggaranAktif->rkasItems();
+            $baseQuery = $tahunAnggaranAktif->rkasItems()->withoutGlobalScope('sekolah');
+            $sekolahId = auth()->user()->sekolah_id;
+            if ($sekolahId) {
+                $baseQuery->where('rkas_item.sekolah_id', $sekolahId);
+            }
 
-            if ($request->filled('program_id')) {
-                $baseQuery->where('program_id', $request->program_id);
+            $programId = $request->input('program_id');
+            $kodeRekeningId = $request->input('kode_rekening_id');
+            $jenisBelanjaId = $request->input('jenis_belanja_id');
+
+            if ($programId) {
+                $baseQuery->where('program_id', $programId);
             }
-            if ($request->filled('kode_rekening_id')) {
-                $baseQuery->where('kode_rekening_id', $request->kode_rekening_id);
+            if ($kodeRekeningId) {
+                $baseQuery->where('kode_rekening_id', $kodeRekeningId);
             }
-            if ($request->filled('jenis_belanja_id')) {
-                $baseQuery->whereHas('kodeRekening', function ($q) use ($request) {
-                    $q->where('jenis_belanja_id', $request->jenis_belanja_id);
+            if ($jenisBelanjaId) {
+                $baseQuery->whereHas('kodeRekening', function ($q) use ($jenisBelanjaId) {
+                    $q->where('jenis_belanja_id', $jenisBelanjaId);
                 });
             }
             if ($sumberDanaId) {
                 $baseQuery->where('sumber_dana_id', $sumberDanaId);
             }
 
-            $filteredIds = $baseQuery->pluck('id');
+            $dashVer = Cache::get('dash_ver_' . auth()->id(), 0);
+            $cacheKey = 'dashboard_user_' . auth()->id() . '_v' . $dashVer . '_' . md5(implode('|', [
+                $tahunAnggaranAktif->id, $bulan, $programId, $kodeRekeningId, $jenisBelanjaId, $sumberDanaId,
+            ]));
 
-            if ($bulan) {
-                $totalRencana = RkasItemBulan::whereIn('rkas_item_id', $filteredIds)
-                    ->where('bulan', $bulan)
-                    ->sum('rencana');
+            $cached = Cache::get($cacheKey);
 
-                $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
-                    ->where('jenis', 'pengeluaran')
-                    ->where('bulan', $bulan)
-                    ->sum('jumlah');
+            if ($cached) {
+                $totalRencana = $cached['totalRencana'];
+                $totalRealisasi = $cached['totalRealisasi'];
+                $chartLabels = $cached['chartLabels'];
+                $chartValues = $cached['chartValues'];
+                $trenBulanLabels = $cached['trenBulanLabels'];
+                $trenBulanValues = $cached['trenBulanValues'];
+                $transaksiBulanIni = $cached['transaksiBulanIni'];
+                $importStatus = $cached['importStatus'];
             } else {
-                $totalRencana = RkasItem::whereIn('id', $filteredIds)->sum('jumlah');
+                $filteredIds = $baseQuery->pluck('id');
 
-                $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                if ($bulan) {
+                    $totalRencana = RkasItemBulan::whereIn('rkas_item_id', $filteredIds)
+                        ->where('bulan', $bulan)
+                        ->sum('rencana');
+                    $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                        ->where('jenis', 'pengeluaran')
+                        ->where('bulan', $bulan)
+                        ->sum('jumlah');
+                } else {
+                    $totalRencana = RkasItem::whereIn('id', $filteredIds)->sum('jumlah');
+                    $totalRealisasi = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                        ->where('jenis', 'pengeluaran')
+                        ->sum('jumlah');
+                }
+
+                $chartData = TransaksiBku::withoutGlobalScope('sekolah')->whereIn('rkas_item_id', $filteredIds)
                     ->where('jenis', 'pengeluaran')
-                    ->sum('jumlah');
-            }
+                    ->where('transaksi_bku.sekolah_id', $sekolahId)
+                    ->join('rkas_item', 'transaksi_bku.rkas_item_id', '=', 'rkas_item.id')
+                    ->join('master_kode_rekening', 'rkas_item.kode_rekening_id', '=', 'master_kode_rekening.id')
+                    ->join('jenis_belanja', 'master_kode_rekening.jenis_belanja_id', '=', 'jenis_belanja.id')
+                    ->selectRaw('jenis_belanja.nama as label, sum(transaksi_bku.jumlah) as total')
+                    ->groupBy('jenis_belanja.nama')
+                    ->get();
 
-            $chartData = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
-                ->where('jenis', 'pengeluaran')
-                ->join('rkas_item', 'transaksi_bku.rkas_item_id', '=', 'rkas_item.id')
-                ->join('master_kode_rekening', 'rkas_item.kode_rekening_id', '=', 'master_kode_rekening.id')
-                ->join('jenis_belanja', 'master_kode_rekening.jenis_belanja_id', '=', 'jenis_belanja.id')
-                ->selectRaw('jenis_belanja.nama as label, sum(transaksi_bku.jumlah) as total')
-                ->groupBy('jenis_belanja.nama')
-                ->get();
+                $chartLabels = [];
+                $chartValues = [];
+                foreach ($chartData as $d) {
+                    $chartLabels[] = $d->label;
+                    $chartValues[] = (float) $d->total;
+                }
 
-            $chartLabels = [];
-            $chartValues = [];
-            foreach ($chartData as $d) {
-                $chartLabels[] = $d->label;
-                $chartValues[] = (float) $d->total;
+                $realisasiPerBulan = array_fill(1, 12, 0);
+                $byBulan = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                    ->where('jenis', 'pengeluaran')
+                    ->selectRaw('transaksi_bku.bulan, sum(transaksi_bku.jumlah) as total')
+                    ->groupBy('transaksi_bku.bulan')
+                    ->pluck('total', 'bulan');
+                foreach ($byBulan as $b => $t) {
+                    if (isset($realisasiPerBulan[$b])) {
+                        $realisasiPerBulan[$b] = (float) $t;
+                    }
+                }
+                $bulanLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                $trenBulanLabels = $bulanLabels;
+                $trenBulanValues = array_values($realisasiPerBulan);
+
+                $transaksiBulanIni = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
+                    ->where('bulan', (int) Carbon::now()->month)
+                    ->count();
+
+                $logs = ImportLog::where('tahun_anggaran_id', $tahunAnggaranAktif->id)
+                    ->get()
+                    ->groupBy('bulan')
+                    ->map(fn($group) => $group->sortByDesc('created_at')->first());
+
+                $importStatus = collect(range(1, 12))->map(fn($m) => (object) [
+                    'bulan' => $m,
+                    'nama' => Carbon::create()->month($m)->translatedFormat('F'),
+                    'status' => $logs->has($m) ? $logs[$m]->status : null,
+                    'baris_berhasil' => $logs->has($m) ? $logs[$m]->baris_berhasil : null,
+                ]);
+
+                Cache::put($cacheKey, [
+                    'totalRencana' => $totalRencana,
+                    'totalRealisasi' => $totalRealisasi,
+                    'chartLabels' => $chartLabels,
+                    'chartValues' => $chartValues,
+                    'trenBulanLabels' => $trenBulanLabels,
+                    'trenBulanValues' => $trenBulanValues,
+                    'transaksiBulanIni' => $transaksiBulanIni,
+                    'importStatus' => $importStatus,
+                ], now()->addMinutes(5));
             }
 
             $rkasItems = (clone $baseQuery)
@@ -138,51 +205,25 @@ class DashboardController extends Controller
         $totalSisa = $totalRencana - $totalRealisasi;
         $persentaseCapaian = $totalRencana > 0 ? round(($totalRealisasi / $totalRencana) * 100, 1) : 0;
 
-        $realisasiPerBulan = array_fill(1, 12, 0);
-        if ($tahunAnggaranAktif) {
-            $byBulan = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
-                ->where('jenis', 'pengeluaran')
-                ->selectRaw('transaksi_bku.bulan, sum(transaksi_bku.jumlah) as total')
-                ->groupBy('transaksi_bku.bulan')
-                ->pluck('total', 'bulan');
-            foreach ($byBulan as $b => $t) {
-                if (isset($realisasiPerBulan[$b])) {
-                    $realisasiPerBulan[$b] = (float) $t;
-                }
-            }
-        }
-        $bulanLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        $trenBulanLabels = $bulanLabels;
-        $trenBulanValues = array_values($realisasiPerBulan);
-
         $recentTransaksi = collect();
-        $transaksiBulanIni = 0;
-        if ($tahunAnggaranAktif) {
+        if ($tahunAnggaranAktif && isset($filteredIds)) {
             $recentTransaksi = TransaksiBku::with(['rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja'])
                 ->whereIn('rkas_item_id', $filteredIds)
                 ->where('jenis', 'pengeluaran')
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get();
-
-            $transaksiBulanIni = TransaksiBku::whereIn('rkas_item_id', $filteredIds)
-                ->where('bulan', (int) Carbon::now()->month)
-                ->count();
         }
 
-        $importStatus = collect();
-        if ($tahunAnggaranAktif) {
-            $logs = ImportLog::where('tahun_anggaran_id', $tahunAnggaranAktif->id)
-                ->get()
-                ->groupBy('bulan')
-                ->map(fn($group) => $group->sortByDesc('created_at')->first());
-
-            $importStatus = collect(range(1, 12))->map(fn($m) => (object) [
-                'bulan' => $m,
-                'nama' => Carbon::create()->month($m)->translatedFormat('F'),
-                'status' => $logs->has($m) ? $logs[$m]->status : null,
-                'baris_berhasil' => $logs->has($m) ? $logs[$m]->baris_berhasil : null,
-            ]);
+        if (!isset($trenBulanLabels)) {
+            $trenBulanLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            $trenBulanValues = array_fill(0, 12, 0);
+        }
+        if (!isset($transaksiBulanIni)) {
+            $transaksiBulanIni = 0;
+        }
+        if (!isset($importStatus)) {
+            $importStatus = collect();
         }
 
         return view('dashboard', compact(

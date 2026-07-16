@@ -5,7 +5,7 @@
 
     @if(!$tahunAnggaranAktif)
         <div class="alert-warning mb-6">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <svg aria-hidden="true" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <span>Tahun anggaran belum diaktifkan. Silakan aktifkan di menu <a href="{{ route('tahun-anggaran.index') }}" class="underline font-semibold hover:text-amber-900">Tahun Anggaran</a> terlebih dahulu.</span>
         </div>
     @endif
@@ -13,7 +13,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div class="stat-card indigo">
             <div class="stat-icon bg-indigo-50">
-                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             </div>
             <div class="stat-label">Total Sekolah</div>
             <div class="stat-value text-indigo-700">{{ count($sekolahs) }}</div>
@@ -21,7 +21,7 @@
 
         <div class="stat-card blue">
             <div class="stat-icon bg-blue-50">
-                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
             <div class="stat-label">Total Anggaran</div>
             <div class="stat-value text-blue-700">Rp {{ number_format($grandRencana, 0, ',', '.') }}</div>
@@ -29,7 +29,7 @@
 
         <div class="stat-card green">
             <div class="stat-icon bg-emerald-50">
-                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
             </div>
             <div class="stat-label">Total Realisasi</div>
             <div class="stat-value text-emerald-700">Rp {{ number_format($grandRealisasi, 0, ',', '.') }}</div>
@@ -37,7 +37,7 @@
 
         <div class="stat-card amber">
             <div class="stat-icon bg-amber-50">
-                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
             </div>
             <div class="stat-label">Rata-rata Capaian</div>
             <div class="stat-value text-amber-700">{{ $avgCapaian }}%</div>
@@ -48,7 +48,7 @@
 
         <div class="stat-card red">
             <div class="stat-icon bg-red-50">
-                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
             </div>
             <div class="stat-label">Belum Upload</div>
             <div class="stat-value text-red-700">{{ $belumUploadCount }}</div>
@@ -57,7 +57,7 @@
 
         <div class="stat-card indigo">
             <div class="stat-icon bg-indigo-50">
-                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <svg aria-hidden="true" class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
             </div>
             <div class="stat-label">RKAS</div>
             <div class="stat-value text-indigo-700">
@@ -68,7 +68,7 @@
 
     @if($belumUploadCount > 0)
         <div class="alert-warning mb-6">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            <svg aria-hidden="true" class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <span>Ada <strong>{{ $belumUploadCount }} sekolah</strong> dari {{ count($sekolahs) }} sekolah yang belum upload data RKAS bulan <strong>{{ \Carbon\Carbon::create()->month((int) $bulan)->translatedFormat('F') }}</strong>. Silakan hubungi sekolah terkait untuk segera mengupload data.</span>
         </div>
     @endif
@@ -147,7 +147,7 @@
                 <tbody>
                     @forelse($sekolahs as $sekolah)
                         <tr class="{{ $sekolah->status_import === 'Belum Upload' ? 'bg-red-50/50' : '' }}">
-                            <td class="text-center text-slate-400 text-sm">{{ $loop->iteration }}</td>
+                            <td class="text-center text-slate-500 text-sm">{{ $loop->iteration }}</td>
                             <td>
                                 <div class="font-medium text-slate-800">{{ $sekolah->nama }}</div>
                                 <div class="text-xs text-slate-500">NPSN: {{ $sekolah->npsn }}</div>
@@ -184,18 +184,18 @@
                             <td class="text-center">
                                 <div class="flex gap-1 justify-center flex-wrap">
                                     <a href="{{ route('admin.laporan.bku', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
-                                       class="btn btn-success btn-sm" style="font-size:11px;padding:2px 8px;">BKU</a>
-                                    <a href="{{ route('admin.laporan.rekap-rekening', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
-                                       class="btn btn-info btn-sm" style="font-size:11px;padding:2px 8px;">Rekap</a>
-                                    <a href="{{ route('admin.laporan.rekap-kuartal', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
-                                       class="btn btn-warning btn-sm" style="font-size:11px;padding:2px 8px;">Tribulan</a>
+                                       class="btn btn-success btn-sm">BKU</a>
+                                     <a href="{{ route('admin.laporan.rekap-rekening', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
+                                        class="btn btn-info btn-sm">Rekap</a>
+                                     <a href="{{ route('admin.laporan.rekap-kuartal', ['sekolah' => $sekolah->id, 'bulan' => $bulan, 'tahun' => $tahunAnggaranAktif?->tahun]) }}"
+                                        class="btn btn-warning btn-sm">Tribulan</a>
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="8" class="py-12 text-center text-slate-400">
-                                <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                <svg aria-hidden="true" class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                                 <p>Tidak ada data sekolah.</p>
                             </td>
                         </tr>

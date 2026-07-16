@@ -10,6 +10,7 @@ use App\Models\TahunAnggaran;
 use App\Models\TransaksiBku;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -162,6 +163,8 @@ class TransaksiBkuController extends Controller
 
         TransaksiBku::create($validated);
 
+        Cache::increment('dash_ver_' . auth()->id());
+
         return redirect()->route('transaksi-bku.index')->with('success', 'Transaksi berhasil ditambahkan.');
     }
 
@@ -213,12 +216,17 @@ class TransaksiBkuController extends Controller
 
         $transaksiBku->update($validated);
 
+        Cache::increment('dash_ver_' . auth()->id());
+
         return redirect()->route('transaksi-bku.index')->with('success', 'Transaksi berhasil diupdate.');
     }
 
     public function destroy(TransaksiBku $transaksiBku)
     {
         $transaksiBku->delete();
+
+        Cache::increment('dash_ver_' . auth()->id());
+
         return back()->with('success', 'Transaksi berhasil dihapus.');
     }
 

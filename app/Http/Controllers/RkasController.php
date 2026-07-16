@@ -10,6 +10,7 @@ use App\Models\SumberDana;
 use App\Models\MasterProgram;
 use App\Models\MasterKodeRekening;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 
@@ -121,12 +122,17 @@ class RkasController extends Controller
 
         $rkasItem->update($validated);
 
+        Cache::increment('dash_ver_' . auth()->id());
+
         return redirect()->route('rkas.index')->with('success', 'Item RKAS berhasil diupdate.');
     }
 
     public function destroy(RkasItem $rkasItem)
     {
         $rkasItem->delete();
+
+        Cache::increment('dash_ver_' . auth()->id());
+
         return back()->with('success', 'Item RKAS berhasil dihapus.');
     }
 }

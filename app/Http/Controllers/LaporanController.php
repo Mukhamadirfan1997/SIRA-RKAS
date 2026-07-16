@@ -800,17 +800,18 @@ class LaporanController extends Controller
         }
 
         if ($realisasiSub === null) {
-            $realisasiSub = TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
+            $realisasiSub = TransaksiBku::withoutGlobalScope('sekolah')
+                ->selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
                 ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
                 ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->where('transaksi_bku.bulan', $bulan)
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId), fn($q) => $q->where('transaksi_bku.sekolah_id', auth()->user()->sekolah_id))
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
                 ->groupBy('transaksi_bku.rkas_item_id');
         }
 
-        $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
+        $query = RkasItem::withoutGlobalScope('sekolah')->with('kodeRekening.jenisBelanja', 'program')
             ->select('rkas_item.*')
             ->selectRaw('COALESCE(rib.total, 0) as rencana_bulan')
             ->selectRaw('COALESCE(tb.total, 0) as realisasi_bulan')
@@ -819,7 +820,9 @@ class LaporanController extends Controller
             ->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
 
         if ($sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $sekolahId);
+            $query->where('rkas_item.sekolah_id', $sekolahId);
+        } else {
+            $query->where('rkas_item.sekolah_id', auth()->user()->sekolah_id);
         }
 
         $search = request('search');
@@ -857,23 +860,26 @@ class LaporanController extends Controller
         $sumberDanaId = request('sumber_dana_id');
 
         if ($realisasiSub === null) {
-            $realisasiSub = TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+            $realisasiSub = TransaksiBku::withoutGlobalScope('sekolah')
+                ->selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
                 ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
                 ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->whereIn('transaksi_bku.bulan', $bulanMonths)
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->where('ri_sub.sekolah_id', $sekolahId ?? auth()->user()->sekolah_id)
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
                 ->groupBy('transaksi_bku.rkas_item_id');
         }
 
-        $query = RkasItem::with('kodeRekening.jenisBelanja', 'program')
+        $query = RkasItem::withoutGlobalScope('sekolah')->with('kodeRekening.jenisBelanja', 'program')
             ->select('rkas_item.*')
             ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
             ->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
 
         if ($sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $sekolahId);
+            $query->where('rkas_item.sekolah_id', $sekolahId);
+        } else {
+            $query->where('rkas_item.sekolah_id', auth()->user()->sekolah_id);
         }
 
         $search = request('search');
@@ -938,12 +944,13 @@ class LaporanController extends Controller
             : null;
 
         $realisasiSub = $tahunAnggaranAktif
-            ? TransaksiBku::selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
+            ? TransaksiBku::withoutGlobalScope('sekolah')
+                ->selectRaw('transaksi_bku.rkas_item_id, SUM(transaksi_bku.jumlah) as total')
                 ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
                 ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->where('transaksi_bku.bulan', $bulan)
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->where('transaksi_bku.sekolah_id', $sekolahId)
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
                 ->when($programId, fn($q) => $q->where('ri_sub.program_id', $programId))
                 ->groupBy('transaksi_bku.rkas_item_id')
@@ -1037,12 +1044,13 @@ class LaporanController extends Controller
         $casesSql = implode(', ', $cases);
 
         $realisasiSub = $tahunAnggaranAktif
-            ? TransaksiBku::selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
+            ? TransaksiBku::withoutGlobalScope('sekolah')
+                ->selectRaw("transaksi_bku.rkas_item_id, {$casesSql}, SUM(transaksi_bku.jumlah) as total_all")
                 ->join('rkas_item as ri_sub', 'ri_sub.id', '=', 'transaksi_bku.rkas_item_id')
                 ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->whereIn('transaksi_bku.bulan', $bulanMonths)
                 ->where('ri_sub.tahun_anggaran_id', $tahunAnggaranAktif->id)
-                ->when($sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $sekolahId))
+                ->where('transaksi_bku.sekolah_id', $sekolahId)
                 ->when($sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $sumberDanaId))
                 ->when($programId, fn($q) => $q->where('ri_sub.program_id', $programId))
                 ->groupBy('transaksi_bku.rkas_item_id')
