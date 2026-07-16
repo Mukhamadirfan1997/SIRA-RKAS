@@ -16,7 +16,6 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RoleAndPermissionSeeder::class);
-        $this->call(TestDataSeeder::class);
 
         $adminKecRole = Role::firstOrCreate(['name' => 'admin-kecamatan']);
         $sekolahRole = Role::firstOrCreate(['name' => 'sekolah']);
