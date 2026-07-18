@@ -178,23 +178,12 @@
             const detailTarif = document.getElementById('detail_tarif');
             const detailSisa = document.getElementById('detail_sisa');
 
+            var selectedRkas = @json($selectedRkas);
             const rkasData = {};
-            var initialItemId = "{{ old('rkas_item_id', $transaksiBku->rkas_item_id) }}";
-
-            function fetchInitialItem(id, callback) {
-                $.ajax('{{ route("rkas-items.select2") }}', {
-                    data: { q: '', exclude: [] },
-                    dataType: 'json',
-                    success: function(resp) {
-                        var found = null;
-                        resp.results.forEach(function(item) {
-                            rkasData[item.id] = item;
-                            if (item.id == id) found = item;
-                        });
-                        callback(found);
-                    }
-                });
+            if (selectedRkas) {
+                rkasData[selectedRkas.id] = selectedRkas;
             }
+            var initialItemId = "{{ old('rkas_item_id', $transaksiBku->rkas_item_id) }}";
 
             rkasSelect.select2({
                 ajax: {
@@ -301,22 +290,11 @@
             toggleVisibility();
             volumeInput.disabled = true;
 
-            if (initialItemId) {
-                var opt = rkasSelect.find('option[value="' + initialItemId + '"]');
-                if (opt.length && opt.val()) {
-                    fetchInitialItem(initialItemId, function(data) {
-                        if (data) {
-                            rkasSelect.val(initialItemId).trigger('change');
-                            updateHarga(data);
-                        }
-                        volumeInput.disabled = false;
-                    });
-                } else {
-                    volumeInput.disabled = false;
-                }
-            } else {
-                volumeInput.disabled = false;
+            if (initialItemId && selectedRkas) {
+                rkasSelect.val(initialItemId).trigger('change');
+                updateHarga(selectedRkas);
             }
+            volumeInput.disabled = false;
         });
     </script>
 </x-app-layout>

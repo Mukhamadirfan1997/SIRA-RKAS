@@ -171,7 +171,20 @@ class TransaksiBkuController extends Controller
     public function edit(TransaksiBku $transaksiBku)
     {
         $transaksiBku->load('rkasItem.program', 'rkasItem.kodeRekening');
-        return view('transaksi-bku.edit', compact('transaksiBku'));
+        $selectedRkas = null;
+        if ($transaksiBku->rkasItem) {
+            $item = $transaksiBku->rkasItem;
+            $selectedRkas = [
+                'id' => $item->id,
+                'text' => $item->no_urut . '. ' . $item->uraian,
+                'program' => $item->program?->nama,
+                'kode' => $item->kodeRekening?->kode,
+                'tarif' => (float) ($item->tarif ?? 0),
+                'satuan' => $item->satuan,
+                'sisa' => (float) ($item->sisa ?? 0),
+            ];
+        }
+        return view('transaksi-bku.edit', compact('transaksiBku', 'selectedRkas'));
     }
 
     public function update(Request $request, TransaksiBku $transaksiBku)

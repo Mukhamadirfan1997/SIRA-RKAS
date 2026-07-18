@@ -73,7 +73,7 @@
                     </div>
 
                     <div class="mb-6 flex items-center gap-3">
-                        <input type="checkbox" name="is_active" id="is_active" value="1" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" {{ $user->is_active ? 'checked' : '' }}>
+                        <input type="checkbox" name="is_active" id="is_active" value="1" class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" {{ old('is_active', $user->is_active) ? 'checked' : '' }}>
                         <label for="is_active" class="text-sm font-medium text-slate-700">Akun Aktif (bisa login ke sistem)</label>
                     </div>
 

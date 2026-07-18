@@ -52,7 +52,7 @@ class UserSekolahController extends Controller
             'email'      => $validated['email'],
             'password'   => Hash::make($validated['password']),
             'sekolah_id' => $validated['role'] === 'admin-kecamatan' ? null : ($validated['sekolah_id'] ?? null),
-            'is_active'  => $request->has('is_active') ? 1 : 1, // default aktif
+            'is_active'  => $request->has('is_active') ? 1 : 0,
         ]);
 
         $user->assignRole($validated['role']);
