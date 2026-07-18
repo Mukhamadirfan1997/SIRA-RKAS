@@ -76,12 +76,17 @@ class NotifyBackupTelegramTest extends TestCase
     {
         Bus::fake();
 
+        $backupDest = $this->createMock(BackupDestination::class);
+        $backupDest->method('diskName')->willReturn('local');
+        $backupDest->method('backups')->willReturn(
+            new \Spatie\Backup\BackupDestination\BackupCollection
+        );
+
         $status = $this->getMockBuilder(\Spatie\Backup\Tasks\Monitor\BackupDestinationStatus::class)
             ->disableOriginalConstructor()
-            ->addMethods(['diskName', 'amountOfBackups'])
+            ->onlyMethods(['backupDestination'])
             ->getMock();
-        $status->method('diskName')->willReturn('local');
-        $status->method('amountOfBackups')->willReturn(3);
+        $status->method('backupDestination')->willReturn($backupDest);
 
         $this->listener->handle(new HealthyBackupWasFound($status));
 
@@ -94,12 +99,15 @@ class NotifyBackupTelegramTest extends TestCase
     {
         Bus::fake();
 
-        $mockBuilder = $this->getMockBuilder(\Spatie\Backup\Tasks\Monitor\BackupDestinationStatus::class)
+        $backupDest = $this->createMock(BackupDestination::class);
+        $backupDest->method('diskName')->willReturn('s3');
+
+        $status = $this->getMockBuilder(\Spatie\Backup\Tasks\Monitor\BackupDestinationStatus::class)
             ->disableOriginalConstructor()
-            ->addMethods(['diskName', 'healthCheckFailures']);
-        $status = $mockBuilder->getMock();
-        $status->method('diskName')->willReturn('s3');
-        $status->method('healthCheckFailures')->willReturn([new \Exception('Backup terlalu tua')]);
+            ->onlyMethods(['backupDestination', 'getHealthCheckFailure'])
+            ->getMock();
+        $status->method('backupDestination')->willReturn($backupDest);
+        $status->method('getHealthCheckFailure')->willReturn(null);
 
         $this->listener->handle(new UnhealthyBackupWasFound($status));
 
