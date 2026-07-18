@@ -137,6 +137,8 @@ class TransaksiBkuController extends Controller
             'jumlah' => 'required|numeric',
             'toko_penerima' => 'nullable|string|max:255',
             'metode_pengadaan' => 'nullable|string|in:siplah,non_siplah',
+            'volume' => 'nullable|numeric|min:0',
+            'satuan' => 'nullable|string|max:50',
             'uraian' => 'nullable|string',
             'override_anggaran' => 'nullable|in:1,on,true',
             'override_note' => 'nullable|string|max:500',
@@ -163,6 +165,9 @@ class TransaksiBkuController extends Controller
         if (!empty($rkasItemId)) {
             $rkasItem = RkasItem::find($rkasItemId);
             $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
+            if ($rkasItem && empty($request->input('satuan'))) {
+                $validated['satuan'] = $rkasItem->satuan;
+            }
         }
 
         if ($jenis == 'pengeluaran' && !empty($rkasItemId)) {
@@ -237,6 +242,8 @@ class TransaksiBkuController extends Controller
             'jumlah' => 'required|numeric',
             'toko_penerima' => 'nullable|string|max:255',
             'metode_pengadaan' => 'nullable|string|in:siplah,non_siplah',
+            'volume' => 'nullable|numeric|min:0',
+            'satuan' => 'nullable|string|max:50',
             'uraian' => 'nullable|string',
         ]);
 
@@ -252,6 +259,9 @@ class TransaksiBkuController extends Controller
         if (!empty($rkasItemId)) {
             $rkasItem = RkasItem::find($rkasItemId);
             $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
+            if ($rkasItem && empty($request->input('satuan'))) {
+                $validated['satuan'] = $rkasItem->satuan;
+            }
         }
 
         if ($jenis == 'pengeluaran' && !empty($rkasItemId)) {

@@ -103,6 +103,9 @@
                     <div class="mb-2">
                         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Nominal & Rincian</h3>
                     </div>
+                    <input type="hidden" name="volume" id="volume" value="{{ old('volume') }}">
+                    <input type="hidden" name="satuan" id="satuan" value="{{ old('satuan') }}">
+
                     <div class="mb-5">
                         <label for="jumlah" class="form-label">Jumlah Nominal (Rp)</label>
                         <input type="number" name="jumlah" id="jumlah" value="{{ old('jumlah') }}" class="form-input text-lg font-bold" step="0.01" required>
@@ -176,6 +179,8 @@
             const rkasSelect = $('#rkas_item_id');
             const hargaInput = document.getElementById('harga_satuan');
             const volumeInput = document.getElementById('volume_barang');
+            const volumeHidden = document.getElementById('volume');
+            const satuanHidden = document.getElementById('satuan');
             const jumlahInput = document.getElementById('jumlah');
             const jenisSelect = document.getElementById('jenis');
             const tanggalInput = document.getElementById('tanggal');
@@ -303,9 +308,10 @@
 
             function kalkulasiJumlah() {
                 var tarif = parseFloat(hargaInput.dataset.val) || 0;
-                var volume = parseFloat(volumeInput.value) || 0;
-                if (tarif > 0 && volume > 0 && jenisSelect.value === 'pengeluaran') {
-                    jumlahInput.value = (tarif * volume).toFixed(2);
+                var vol = parseFloat(volumeInput.value) || 0;
+                volumeHidden.value = vol > 0 ? vol : '';
+                if (tarif > 0 && vol > 0 && jenisSelect.value === 'pengeluaran') {
+                    jumlahInput.value = (tarif * vol).toFixed(2);
                 }
             }
 
@@ -314,10 +320,14 @@
                 if (data && data.id) {
                     rkasData[data.id] = data;
                 }
+                if (data && data.satuan) {
+                    satuanHidden.value = data.satuan;
+                }
                 updateHarga(data);
             });
 
             rkasSelect.on('select2:clear', function() {
+                satuanHidden.value = '';
                 updateHarga(null);
             });
 

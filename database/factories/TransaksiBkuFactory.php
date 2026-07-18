@@ -22,6 +22,8 @@ class TransaksiBkuFactory extends Factory
             'no_bukti' => fake()->unique()->numerify('BKU-####-#####'),
             'jenis' => $jenis,
             'jumlah' => fake()->randomFloat(2, 10000, 5000000),
+            'volume' => fake()->optional(0.7)->randomFloat(2, 1, 100),
+            'satuan' => fake()->optional(0.7)->randomElement(['buah', 'paket', 'lembar', 'unit', 'set', 'kg', 'liter']),
             'toko_penerima' => $jenis === 'pengeluaran' ? fake()->company() : null,
             'uraian' => fake()->sentence(5),
             'status_lunas' => fake()->boolean(80),

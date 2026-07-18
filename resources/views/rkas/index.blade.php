@@ -151,6 +151,8 @@
                                 $realisasi = $item->transaksiBkus->sum('jumlah');
                                 $sisa = $item->jumlah - $realisasi;
                                 $persen = $item->jumlah > 0 ? ($realisasi / $item->jumlah) * 100 : 0;
+                                $realisasiVolume = $item->transaksiBkus->sum('volume');
+                                $sisaVolume = $item->volume > 0 ? ($item->volume - $realisasiVolume) : null;
                             @endphp
                             <tr class="{{ $isLengkap ? '' : 'bg-amber-50/50' }}">
                                 <td class="font-semibold text-slate-700">{{ $loop->iteration }}</td>
@@ -197,7 +199,12 @@
                                 <td class="text-right text-slate-700 whitespace-nowrap">{{ $item->tarif > 0 ? 'Rp ' . number_format($item->tarif, 0, ',', '.') : '-' }}</td>
                                 <td class="text-right font-bold text-slate-800 whitespace-nowrap">Rp {{ number_format($item->jumlah, 0, ',', '.') }}</td>
                                 <td class="text-right font-semibold text-blue-600 whitespace-nowrap">Rp {{ number_format($realisasi, 0, ',', '.') }}</td>
-                                <td class="text-right font-bold whitespace-nowrap {{ $sisa >= 0 ? 'text-emerald-600' : 'text-red-600' }}">Rp {{ number_format($sisa, 0, ',', '.') }}</td>
+                                <td class="text-right font-bold whitespace-nowrap {{ $sisa >= 0 ? 'text-emerald-600' : 'text-red-600' }}">
+                                    Rp {{ number_format($sisa, 0, ',', '.') }}
+                                    @if($sisaVolume !== null)
+                                        <br><span class="text-xs font-normal">(sisa {{ number_format($sisaVolume, 0, ',', '.') }} {{ $item->satuan ?: 'item' }})</span>
+                                    @endif
+                                </td>
                                 <td>
                                     @if($sisa < 0)
                                         <span class="badge badge-red">Over ({{ number_format($persen, 0) }}%)</span>

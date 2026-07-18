@@ -18,7 +18,7 @@ class RkasItemController extends Controller
         $excludeIds = $request->input('exclude', []);
 
         $query = RkasItem::with('program', 'kodeRekening', 'sumberDana')
-            ->withSum(['transaksiBkus as realisasi_sum' => fn(\Illuminate\Database\Eloquent\Relations\Relation $q) => $q->where('jenis', 'pengeluaran')], 'jumlah')
+            ->withSum(['transaksiBkus as realisasi_sum' => fn(\Illuminate\Database\Eloquent\Builder $q) => $q->where('jenis', 'pengeluaran')], 'jumlah')
             ->orderBy('no_urut');
 
         if ($search !== '') {
@@ -36,10 +36,10 @@ class RkasItemController extends Controller
 
         $results = $items->map(function (RkasItem $item): array { return [
             'id' => $item->id,
-            'text' => $item->no_urut . '. ' . $item->uraian . ' — ' . ($item->sumberDana->kode ?? '-') . ' (Sisa: Rp ' . number_format($item->jumlah - $item->realisasi_sum, 0, ',', '.') . ')',
+            'text' => $item->no_urut . '. ' . $item->uraian . ' — ' . (optional($item->sumberDana)->kode ?? '-') . ' (Sisa: Rp ' . number_format($item->jumlah - $item->realisasi_sum, 0, ',', '.') . ')',
             'tarif' => $item->tarif,
-            'program' => $item->program->nama ?? '-',
-            'kode' => $item->kodeRekening->kode ?? '-',
+            'program' => optional($item->program)->nama ?? '-',
+            'kode' => optional($item->kodeRekening)->kode ?? '-',
             'satuan' => $item->satuan ?? '',
             'sisa' => $item->jumlah - $item->realisasi_sum,
         ]; });

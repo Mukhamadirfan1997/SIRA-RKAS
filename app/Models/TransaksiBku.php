@@ -32,6 +32,8 @@ use Illuminate\Database\Eloquent\Builder;
  * @property int $sumber_dana_id
  * @property string $toko_penerima
  * @property float $saldo_berjalan
+ * @property float|null $volume
+ * @property string|null $satuan
  * @property string|null $keterangan
  * @use HasFactory<\Database\Factories\TransaksiBkuFactory>
  */
@@ -52,6 +54,8 @@ class TransaksiBku extends Model
         'jumlah',
         'toko_penerima',
         'metode_pengadaan',
+        'volume',
+        'satuan',
         'sumber_dana_id',
         'uraian',
         'tahap',
