@@ -77,13 +77,26 @@ class ProcessRkasImport implements ShouldQueue
             ), $this->filePath);
 
             $log->refresh();
-            $log->update([
-                'status' => 'success',
-                'total_baris' => $log->baris_berhasil + $log->baris_gagal,
-                'finished_at' => now(),
-            ]);
 
-            // Hapus file asli setelah sukses
+            if ($log->baris_berhasil === 0) {
+                $err = $log->error_detail ?? [];
+                $err[] = "Tidak ada data yang berhasil diimpor. Periksa format file Excel — pastikan kolom sesuai template (No Urut di kolom A, Kode Rekening di kolom B, Uraian di kolom J, Jumlah di kolom T).";
+                $log->update([
+                    'status' => 'failed',
+                    'error_detail' => $err,
+                    'total_baris' => $log->baris_gagal,
+                    'finished_at' => now(),
+                ]);
+                Log::error("Import gagal: 0 baris berhasil — format file tidak sesuai template untuk bulan " . $log->bulan . " sekolah " . $log->sekolah_id);
+            } else {
+                $log->update([
+                    'status' => 'success',
+                    'total_baris' => $log->baris_berhasil + $log->baris_gagal,
+                    'finished_at' => now(),
+                ]);
+            }
+
+            // Hapus file asli setelah selesai
             if ($log->file_path) {
                 Storage::disk('local')->delete($log->file_path);
                 $log->update(['file_path' => null]);

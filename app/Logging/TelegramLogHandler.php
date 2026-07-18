@@ -27,6 +27,12 @@ class TelegramLogHandler extends AbstractProcessingHandler
         }
     }
 
+    private array $sensitiveKeys = [
+        'password', 'passwd', 'secret', 'token', 'api_key', 'api_token',
+        'access_token', 'refresh_token', 'authorization', 'auth_token',
+        'private_key', 'database_url', 'db_password',
+    ];
+
     private function sanitize(array $data): array
     {
         $result = [];
@@ -34,7 +40,9 @@ class TelegramLogHandler extends AbstractProcessingHandler
             if ($value instanceof \Closure || is_resource($value)) {
                 continue;
             }
-            if (is_array($value)) {
+            if (in_array(strtolower((string) $key), $this->sensitiveKeys, true)) {
+                $result[$key] = '[REDACTED]';
+            } elseif (is_array($value)) {
                 $result[$key] = $this->sanitize($value);
             } elseif (is_object($value)) {
                 try {

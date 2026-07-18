@@ -15,6 +15,10 @@ class SendTelegramNotificationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries = 3;
+
+    public array $backoff = [2, 10];
+
     public string $level;
     public string $message;
     public array $context;
