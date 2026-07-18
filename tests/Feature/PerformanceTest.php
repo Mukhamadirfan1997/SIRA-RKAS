@@ -102,7 +102,7 @@ class PerformanceTest extends TestCase
                     'rkas_item_id' => $item->id,
                     'tanggal' => "2026-{$bulan}-" . rand(1, 28),
                     'bulan' => $bulan,
-                    'no_bukti' => 'BKU-2026-' . str_pad($item->id * 10 + $i, 5, '0', STR_PAD_LEFT),
+                    'no_bukti' => 'BKU-2026-' . str_pad((string)($item->id * 10 + $i), 5, '0', STR_PAD_LEFT),
                     'jenis' => 'pengeluaran',
                     'jumlah' => $jumlah,
                     'toko_penerima' => 'CV. Test',
@@ -117,6 +117,10 @@ class PerformanceTest extends TestCase
         });
     }
 
+    /**
+     * @param array<mixed> $params
+     * @return array{0: int, 1: float}
+     */
     private function timeRoute(string $method, string $uri, array $params = []): array
     {
         $start = microtime(true);
@@ -127,7 +131,7 @@ class PerformanceTest extends TestCase
     }
 
     /** @test */
-    public function measure_all_page_times()
+    public function measure_all_page_times(): void
     {
         $routes = [
             'GET /dashboard'                 => ['GET', '/dashboard', []],
@@ -145,7 +149,7 @@ class PerformanceTest extends TestCase
 
         foreach ($routes as $label => [$method, $uri, $params]) {
             [$code, $elapsed] = $this->timeRoute($method, $uri, $params);
-            echo str_pad($label, 50) . str_pad($code, 10) . $elapsed . " ms\n";
+            echo str_pad($label, 50) . str_pad((string) $code, 10) . $elapsed . " ms\n";
         }
 
         echo "\n--- LOGIN TEST ---\n";
@@ -153,8 +157,8 @@ class PerformanceTest extends TestCase
             'email' => 'sekolah-test@test-data.local',
             'password' => 'password',
         ]);
-        echo str_pad("POST /login", 50) . str_pad($code, 10) . $elapsed . " ms\n";
+        echo str_pad("POST /login", 50) . str_pad((string) $code, 10) . $elapsed . " ms\n";
 
-        $this->assertTrue(true);
+        $this->assertNotEmpty($routes);
     }
 }

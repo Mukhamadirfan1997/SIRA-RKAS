@@ -20,19 +20,25 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class LaporanController extends Controller
 {
-    public function bku(Request $request)
+    public function bku(Request $request): \Illuminate\Http\Response|\Illuminate\View\View
     {
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
             ini_set('memory_limit', -1);
         }
-        $bulan = (int) $request->get('bulan', date('n'));
-        $rawTanggal = $request->get('tanggal_cetak', '');
-        $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $rawTanggalVal = $request->input('tanggal_cetak', '');
+        $rawTanggal = is_string($rawTanggalVal) ? $rawTanggalVal : '';
+        $tanggalCetak = $rawTanggal !== '' && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
         $tahunAnggaranAktif = TahunAnggaran::getActive();
-        $tahunInput = $request->get('tahun');
+        $tahunInput = $request->input('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
             if ($tahunRecord) {
@@ -40,7 +46,7 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        $profil = auth()->user()->profilSekolah;
+        $profil = $authUser->profilSekolah;
 
         $transaksis = TransaksiBku::with('rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja')
             ->where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
@@ -50,11 +56,12 @@ class LaporanController extends Controller
             ->orderBy('id')
             ->get();
 
-        $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+        $saldoRecord = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
             ->where('bulan', '<', $bulan)
             ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
             ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
-            ->value('saldo') ?? 0;
+            ->first();
+        $saldoAwal = $saldoRecord ? (float) $saldoRecord->saldo : 0.0;
 
         $saldo = $saldoAwal;
         foreach ($transaksis as $t) {
@@ -67,15 +74,15 @@ class LaporanController extends Controller
             ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
             ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan")
             ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran")
-            ->first();
+            ->firstOrFail();
         $totalPenerimaan = (float) $totals->total_penerimaan;
         $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $saldoAwal + $totalPenerimaan - $totalPengeluaran;
 
         if ($request->get('cetak') == 'pdf') {
             $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-            $bulanLabel = $bulan ? \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') : '';
-            $tahunLabel = $tahunAnggaranAktif?->tahun ?? date('Y');
+            $bulanLabel = $bulan ? \Carbon\Carbon::createFromDate(null, $bulan, 1)->translatedFormat('F') : '';
+            $tahunLabel = $tahunAnggaranAktif->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.bku', compact(
                 'transaksis', 'profil', 'bulan', 'tahunAnggaranAktif',
                 'saldoAwal', 'totalPenerimaan', 'totalPengeluaran', 'saldoAkhir', 'tanggalCetak', 'sumberDanaId'
@@ -90,19 +97,25 @@ class LaporanController extends Controller
         ));
     }
 
-    public function rekapRekening(Request $request)
+    public function rekapRekening(Request $request): \Illuminate\Http\Response|\Illuminate\View\View
     {
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
             ini_set('memory_limit', -1);
         }
-        $bulan = (int) $request->get('bulan', date('n'));
-        $rawTanggal = $request->get('tanggal_cetak', '');
-        $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $rawTanggalVal = $request->input('tanggal_cetak', '');
+        $rawTanggal = is_string($rawTanggalVal) ? $rawTanggalVal : '';
+        $tanggalCetak = $rawTanggal !== '' && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
         $tahunAnggaranAktif = TahunAnggaran::getActive();
-        $tahunInput = $request->get('tahun');
+        $tahunInput = $request->input('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
             if ($tahunRecord) {
@@ -110,15 +123,17 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        $profil = auth()->user()->profilSekolah;
+        $profil = $authUser->profilSekolah;
 
         $rkasItems = $this->loadRekapRekeningItems($tahunAnggaranAktif, $bulan);
-        $grouped = $rkasItems->groupBy(fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori');
+        $grouped = $rkasItems instanceof \Illuminate\Support\Collection
+            ? $rkasItems->groupBy(fn(RkasItem $item): string => $item->kodeRekening->jenisBelanja->nama ?? 'Tidak Terkategori')
+            : collect();
 
-        if ($request->get('cetak') == 'pdf') {
+        if ($request->input('cetak') == 'pdf') {
             $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-            $bulanLabel = $bulan ? \Carbon\Carbon::create()->month($bulan)->translatedFormat('F') : '';
-            $tahunLabel = $tahunAnggaranAktif?->tahun ?? date('Y');
+            $bulanLabel = $bulan ? \Carbon\Carbon::createFromDate(null, $bulan, 1)->translatedFormat('F') : '';
+            $tahunLabel = $tahunAnggaranAktif->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-rekening', compact(
                 'grouped', 'profil', 'bulan', 'tahunAnggaranAktif', 'rkasItems', 'tanggalCetak', 'sumberDanaId'
             ))->setPaper('a4', 'landscape');
@@ -131,10 +146,15 @@ class LaporanController extends Controller
         ));
     }
 
-    public function bkuExportExcel(Request $request)
+    public function bkuExportExcel(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $bulan = (int) $request->get('bulan', date('n'));
-        $profil = auth()->user()->profilSekolah;
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $profil = $authUser->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::getActive();
@@ -158,17 +178,22 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\BkuExport::class,
-            [$bulan, $namaSekolah, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['bulan' => $bulan, 'profil' => $namaSekolah, 'sekolahId' => $sekolahId, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export BKU sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
-    public function rekapRekeningExportExcel(Request $request)
+    public function rekapRekeningExportExcel(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $bulan = (int) $request->get('bulan', date('n'));
-        $profil = auth()->user()->profilSekolah;
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $profil = $authUser->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::getActive();
@@ -192,29 +217,31 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapRekeningExport::class,
-            [$bulan, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['bulan' => $bulan, 'sekolahId' => $sekolahId, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap Realisasi sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
-    public function rekapKuartal(Request $request)
+    public function rekapKuartal(Request $request): \Illuminate\Http\Response|\Illuminate\View\View
     {
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
             ini_set('memory_limit', -1);
         }
-        $bulan = (int) $request->get('bulan', date('n'));
-        $rawTanggal = $request->get('tanggal_cetak', '');
-        $tanggalCetak = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $rawTanggalVal = $request->input('tanggal_cetak', '');
+        $rawTanggal = is_string($rawTanggalVal) ? $rawTanggalVal : '';
+        $tanggalCetak = $rawTanggal !== '' && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
             ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
             : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
         $kuartal = (int) ceil($bulan / 3);
         $startMonth = ($kuartal - 1) * 3 + 1;
         $bulanMonths = [$startMonth, $startMonth + 1, $startMonth + 2];
         $bulanNames = array_map(
-            fn($m) => \Carbon\Carbon::create()->month($m)->translatedFormat('F'),
+            fn($m) => \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F'),
             $bulanMonths
         );
         $qLabel = 'Q' . $kuartal;
@@ -229,16 +256,20 @@ class LaporanController extends Controller
             }
         }
         $sumberDanaId = $request->input('sumber_dana_id');
-        $profil = auth()->user()->profilSekolah;
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
+        $profil = $authUser->profilSekolah;
 
         $quarterlyItems = $this->loadKuartalItems($tahunAnggaranAktif, $bulanMonths);
-        $grouped = $quarterlyItems->groupBy(
-            fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori'
-        );
+        $grouped = $quarterlyItems instanceof \Illuminate\Support\Collection
+            ? $quarterlyItems->groupBy(fn(RkasItem $item): string => $item->kodeRekening->jenisBelanja->nama ?? 'Tidak Terkategori')
+            : collect();
 
         if ($request->get('cetak') == 'pdf') {
             $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-            $tahunLabel = $tahunAnggaranAktif?->tahun ?? date('Y');
+            $tahunLabel = $tahunAnggaranAktif->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-rekening-kuartal', compact(
                 'grouped', 'profil', 'tahunAnggaranAktif',
                 'qLabel', 'periodeLabel', 'bulanMonths', 'bulanNames', 'tanggalCetak', 'sumberDanaId'
@@ -253,11 +284,16 @@ class LaporanController extends Controller
         ));
     }
 
-    public function rekapKuartalExportExcel(Request $request)
+    public function rekapKuartalExportExcel(Request $request): \Illuminate\Http\RedirectResponse
     {
-        $bulan = (int) $request->get('bulan', date('n'));
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
         $kuartal = (int) ceil($bulan / 3);
-        $profil = auth()->user()->profilSekolah;
+        $profil = $authUser->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
         $tahunAnggaranAktif = TahunAnggaran::getActive();
@@ -281,14 +317,14 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapKuartalExport::class,
-            [$kuartal, $namaSekolah, $sekolahId, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['kuartal' => $kuartal, 'namaSekolah' => $namaSekolah, 'sekolahId' => $sekolahId, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap Tribulan sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
-    public function rekapSiplah(Request $request)
+    public function rekapSiplah(Request $request): \Illuminate\Http\Response|\Illuminate\View\View
     {
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
@@ -297,9 +333,12 @@ class LaporanController extends Controller
         $data = $this->prepareRekapSiplahData($request);
 
         if ($request->get('cetak') == 'pdf') {
-            $namaSekolah = $data['profil'] ? preg_replace('/[^a-zA-Z0-9]/', '_', $data['profil']->nama) : 'sekolah';
-            $slug = str_replace([' ', '–'], ['_', '-'], $data['periodeLabel']);
-            $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
+            $_profil = isset($data['profil']) && $data['profil'] instanceof \App\Models\ProfilSekolah ? $data['profil'] : null;
+            $namaSekolah = $_profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $_profil->nama) : 'sekolah';
+            $_label = isset($data['periodeLabel']) && is_string($data['periodeLabel']) ? $data['periodeLabel'] : '';
+            $slug = str_replace([' ', '–'], ['_', '-'], $_label);
+            $_ta = isset($data['tahunAnggaranAktif']) && $data['tahunAnggaranAktif'] instanceof \App\Models\TahunAnggaran ? $data['tahunAnggaranAktif'] : null;
+            $tahunLabel = $_ta ? $_ta->tahun : date('Y');
             $pdf = Pdf::loadView('laporan.rekap-siplah', $data)->setPaper('a4', 'landscape');
             return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $slug . '_' . $tahunLabel . '.pdf');
         }
@@ -307,19 +346,24 @@ class LaporanController extends Controller
         return view('laporan.rekap-siplah', $data);
     }
 
-    public function rekapSiplahWeb(Request $request)
+    public function rekapSiplahWeb(Request $request): \Illuminate\View\View
     {
         $data = $this->prepareRekapSiplahData($request);
         return view('laporan.rekap-siplah-web', $data);
     }
 
-    public function rekapSiplahExportExcel(Request $request)
+    public function rekapSiplahExportExcel(Request $request): \Illuminate\Http\RedirectResponse
     {
+        $authUser = auth()->user();
+        if ($authUser === null) {
+            abort(403);
+        }
         $resolved = $this->resolveSiplahPeriode($request);
-        $profil = auth()->user()->profilSekolah;
+        $profil = $authUser->profilSekolah;
         $sekolahId = $profil?->id;
         $namaSekolah = $profil ? preg_replace('/[^a-zA-Z0-9]/', '_', $profil->nama) : 'sekolah';
-        $slug = str_replace([' ', '–'], ['_', '-'], $resolved['label']);
+        $_label = !empty($resolved['label']) ? $resolved['label'] : '';
+        $slug = str_replace([' ', '–'], ['_', '-'], $_label);
         $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunInput = $request->get('tahun');
         if ($tahunInput) {
@@ -341,14 +385,14 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapSiplahExport::class,
-            [$resolved['months'], $sekolahId, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['months' => $resolved['months'], 'sekolahId' => $sekolahId, 'periodeLabel' => $resolved['label'], 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap SIPLAH sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
-    public function adminRekapSiplah(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapSiplah(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\Response|\Illuminate\View\View
     {
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
@@ -360,12 +404,15 @@ class LaporanController extends Controller
 
         if ($request->get('cetak') == 'pdf') {
             $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
-            $rawTanggal = $request->get('tanggal_cetak', '');
-            $data['tanggalCetak'] = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
+            $rawTanggalVal = $request->input('tanggal_cetak', '');
+            $rawTanggal = is_string($rawTanggalVal) ? $rawTanggalVal : '';
+            $data['tanggalCetak'] = $rawTanggal !== '' && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
                 ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
                 : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-            $slug = str_replace([' ', '–'], ['_', '-'], $data['periodeLabel']);
-            $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
+            $_label = isset($data['periodeLabel']) && is_string($data['periodeLabel']) ? $data['periodeLabel'] : '';
+            $slug = str_replace([' ', '–'], ['_', '-'], $_label);
+            $_ta = isset($data['tahunAnggaranAktif']) && $data['tahunAnggaranAktif'] instanceof \App\Models\TahunAnggaran ? $data['tahunAnggaranAktif'] : null;
+            $tahunLabel = $_ta ? $_ta->tahun : date('Y');
             $pdf = Pdf::loadView('laporan.rekap-siplah', $data)->setPaper('a4', 'landscape');
             return $pdf->stream('Rekap_Siplah-' . $namaSekolah . '-' . $slug . '_' . $tahunLabel . '.pdf');
         }
@@ -373,7 +420,7 @@ class LaporanController extends Controller
         return view('laporan.rekap-siplah-web', $data);
     }
 
-    public function adminRekapSiplahExportExcel(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapSiplahExportExcel(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\RedirectResponse
     {
         $resolved = $this->resolveSiplahPeriode($request);
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
@@ -399,17 +446,22 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapSiplahExport::class,
-            [$resolved['months'], $sekolah->id, $resolved['label'], $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['months' => $resolved['months'], 'sekolahId' => $sekolah->id, 'periodeLabel' => $resolved['label'], 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap SIPLAH sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
+    /**
+     * @return array{months: int[], label: string}
+     */
     private function resolveSiplahPeriode(Request $request): array
     {
-        $periode = $request->get('periode', '');
-        $bulanParam = (int) $request->get('bulan', 0);
+        $periodeRaw = $request->input('periode', '');
+        $periode = is_string($periodeRaw) ? $periodeRaw : '';
+        $bulanRaw = $request->input('bulan', 0);
+        $bulanParam = is_numeric($bulanRaw) ? (int) $bulanRaw : 0;
 
         if ($periode === 'h1') {
             return ['months' => [1, 2, 3, 4, 5, 6], 'label' => 'Januari – Juni'];
@@ -418,13 +470,16 @@ class LaporanController extends Controller
         } elseif ($periode === 'all') {
             return ['months' => range(1, 12), 'label' => 'Seluruh Tahun'];
         } elseif ($bulanParam >= 1 && $bulanParam <= 12) {
-            $label = \Carbon\Carbon::create()->month($bulanParam)->translatedFormat('F');
+            $label = \Carbon\Carbon::now()->month($bulanParam)->translatedFormat('F');
             return ['months' => [$bulanParam], 'label' => $label];
         }
         $currentMonth = (int) date('n');
-        return ['months' => [$currentMonth], 'label' => \Carbon\Carbon::create()->month($currentMonth)->translatedFormat('F')];
+        return ['months' => [$currentMonth], 'label' => \Carbon\Carbon::now()->month($currentMonth)->translatedFormat('F')];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function prepareRekapSiplahData(Request $request, ?ProfilSekolah $profilOverride = null): array
     {
         $resolved = $this->resolveSiplahPeriode($request);
@@ -447,7 +502,8 @@ class LaporanController extends Controller
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
-        $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $_authU = auth()->user();
+        $profil = $profilOverride ?? ($_authU ? $_authU->profilSekolah : null);
 
         $totalsQuery = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
             ->where('jenis', 'pengeluaran')
@@ -462,7 +518,7 @@ class LaporanController extends Controller
             COALESCE(SUM(jumlah), 0) as total,
             COALESCE(SUM(CASE WHEN metode_pengadaan = 'siplah' THEN jumlah ELSE 0 END), 0) as siplah,
             COALESCE(SUM(CASE WHEN metode_pengadaan = 'non_siplah' THEN jumlah ELSE 0 END), 0) as non_siplah
-        ")->first();
+        ")->firstOrFail();
 
         $totalPengeluaran = (float) $totals->total;
         $totalSiplah = (float) $totals->siplah;
@@ -499,9 +555,9 @@ class LaporanController extends Controller
             ->get();
 
         $breakdown = $breakdownRows->map(function ($row) {
-            $total = (float) $row->total;
-            $siplah = (float) $row->siplah;
-            $non_siplah = (float) $row->non_siplah;
+            $total = is_numeric($row->total) ? (float) $row->total : 0.0;
+            $siplah = is_numeric($row->siplah) ? (float) $row->siplah : 0.0;
+            $non_siplah = is_numeric($row->non_siplah) ? (float) $row->non_siplah : 0.0;
             return (object) [
                 'jenis_belanja' => $row->jenis_belanja,
                 'total' => $total,
@@ -520,7 +576,7 @@ class LaporanController extends Controller
         );
     }
 
-    public function index()
+    public function index(): \Illuminate\View\View
     {
         $sekolahs = collect();
         if (auth()->user()->isAdminKecamatan()) {
@@ -530,25 +586,25 @@ class LaporanController extends Controller
         return view('laporan.index', compact('sekolahs', 'tahunAnggaranAktif'));
     }
 
-    public function bkuWeb(Request $request)
+    public function bkuWeb(Request $request): \Illuminate\View\View
     {
         $data = $this->prepareBkuData($request);
         return view('laporan.bku-web', $data);
     }
 
-    public function rekapRekeningWeb(Request $request)
+    public function rekapRekeningWeb(Request $request): \Illuminate\View\View
     {
         $data = $this->prepareRekapRekeningData($request, null, 50);
         return view('laporan.rekap-rekening-web', $data);
     }
 
-    public function rekapKuartalWeb(Request $request)
+    public function rekapKuartalWeb(Request $request): \Illuminate\View\View
     {
         $data = $this->prepareRekapKuartalData($request, null, 50);
         return view('laporan.rekap-kuartal-web', $data);
     }
 
-    public function adminBku(Request $request, ProfilSekolah $sekolah)
+    public function adminBku(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\Response|\Illuminate\View\View
     {
         if ($request->get('cetak') == 'pdf') {
             set_time_limit(0);
@@ -565,7 +621,7 @@ class LaporanController extends Controller
                 ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
                 : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
             $bulanLabel = $data['bulan'] ? \Carbon\Carbon::create()->month($data['bulan'])->translatedFormat('F') : '';
-            $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
+            $tahunLabel = $data['tahunAnggaranAktif']->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.bku', $data)->setPaper('a4', 'landscape');
             return $pdf->stream('BKU-' . $namaSekolah . '-' . $bulanLabel . '_' . $tahunLabel . '.pdf');
         }
@@ -573,7 +629,7 @@ class LaporanController extends Controller
         return view('laporan.bku-web', $data);
     }
 
-    public function adminRekapRekening(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapRekening(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\Response|\Illuminate\View\View
     {
         $isPdf = $request->get('cetak') == 'pdf';
         if ($isPdf) {
@@ -591,7 +647,7 @@ class LaporanController extends Controller
                 ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
                 : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
             $bulanLabel = $data['bulan'] ? \Carbon\Carbon::create()->month($data['bulan'])->translatedFormat('F') : '';
-            $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
+            $tahunLabel = $data['tahunAnggaranAktif']->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-rekening', $data)->setPaper('a4', 'landscape');
             return $pdf->stream('Rekap_Rekening-' . $namaSekolah . '-' . $bulanLabel . '_' . $tahunLabel . '.pdf');
         }
@@ -599,7 +655,7 @@ class LaporanController extends Controller
         return view('laporan.rekap-rekening-web', $data);
     }
 
-    public function adminRekapKuartal(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapKuartal(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\Response|\Illuminate\View\View
     {
         $isPdf = $request->get('cetak') == 'pdf';
         if ($isPdf) {
@@ -616,7 +672,7 @@ class LaporanController extends Controller
             $data['tanggalCetak'] = $rawTanggal && \Carbon\Carbon::hasFormat($rawTanggal, 'Y-m-d')
                 ? \Carbon\Carbon::parse($rawTanggal)->translatedFormat('d F Y')
                 : ($rawTanggal ?: \Carbon\Carbon::now()->translatedFormat('d F Y'));
-            $tahunLabel = $data['tahunAnggaranAktif']?->tahun ?? date('Y');
+            $tahunLabel = $data['tahunAnggaranAktif']->tahun ?? date('Y');
             $pdf = Pdf::loadView('laporan.rekap-rekening-kuartal', $data)->setPaper('a4', 'landscape');
             return $pdf->stream('Rekap_Kuartal-' . $namaSekolah . '-' . $data['qLabel'] . '_' . $tahunLabel . '.pdf');
         }
@@ -624,7 +680,7 @@ class LaporanController extends Controller
         return view('laporan.rekap-kuartal-web', $data);
     }
 
-    public function adminBkuExportExcel(Request $request, ProfilSekolah $sekolah)
+    public function adminBkuExportExcel(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\RedirectResponse
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
@@ -649,14 +705,14 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\BkuExport::class,
-            [$bulan, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['bulan' => $bulan, 'profil' => $namaSekolah, 'sekolahId' => $sekolah->id, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export BKU sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
-    public function adminRekapRekeningExportExcel(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapRekeningExportExcel(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\RedirectResponse
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $namaSekolah = preg_replace('/[^a-zA-Z0-9]/', '_', $sekolah->nama);
@@ -681,14 +737,14 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapRekeningExport::class,
-            [$bulan, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['bulan' => $bulan, 'sekolahId' => $sekolah->id, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap Realisasi sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a> atau tunggu notifikasi.');
     }
 
-    public function adminRekapKuartalExportExcel(Request $request, ProfilSekolah $sekolah)
+    public function adminRekapKuartalExportExcel(Request $request, ProfilSekolah $sekolah): \Illuminate\Http\RedirectResponse
     {
         $bulan = (int) $request->get('bulan', date('n'));
         $kuartal = (int) ceil($bulan / 3);
@@ -714,13 +770,16 @@ class LaporanController extends Controller
         \App\Jobs\GenerateExportJob::dispatch(
             $exportJob->id,
             \App\Exports\RekapKuartalExport::class,
-            [$kuartal, $namaSekolah, $sekolah->id, $tahunAnggaranAktif?->id, $sumberDanaId],
+            ['kuartal' => $kuartal, 'namaSekolah' => $namaSekolah, 'sekolahId' => $sekolah->id, 'tahunAnggaranId' => $tahunAnggaranAktif?->id, 'sumberDanaId' => $sumberDanaId],
             $filename,
         );
 
         return redirect()->back()->with('info', 'Export Rekap Tribulan sedang diproses. <a href="' . route('exports.download', $exportJob->id) . '" class="font-semibold underline">Cek status</a>.');
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function prepareBkuData(Request $request, ?ProfilSekolah $profilOverride = null): array
     {
         $bulan = (int) $request->get('bulan', date('n'));
@@ -735,7 +794,8 @@ class LaporanController extends Controller
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
-        $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $_authU2 = auth()->user();
+        $profil = $profilOverride ?? ($_authU2 ? $_authU2->profilSekolah : null);
 
         $query = TransaksiBku::with('rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja')
             ->where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
@@ -758,7 +818,7 @@ class LaporanController extends Controller
         }
         $saldoAwal = (float) $baseQuery
             ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
-            ->value('saldo') ?? 0;
+            ->value('saldo');
 
         $saldo = $saldoAwal;
         foreach ($transaksis as $t) {
@@ -775,7 +835,7 @@ class LaporanController extends Controller
         $totals = $totals
             ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan")
             ->selectRaw("COALESCE(SUM(CASE WHEN jenis = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran")
-            ->first();
+            ->firstOrFail();
         $totalPenerimaan = (float) $totals->total_penerimaan;
         $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $saldoAwal + $totalPenerimaan - $totalPengeluaran;
@@ -785,6 +845,11 @@ class LaporanController extends Controller
             'sumberDanaList', 'sumberDanaId');
     }
 
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder<\App\Models\RkasItemBulan>|null $rencanaSub
+     * @param \Illuminate\Database\Eloquent\Builder<\App\Models\TransaksiBku>|null $realisasiSub
+     * @return \Illuminate\Support\Collection<int, \App\Models\RkasItem>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<int, \App\Models\RkasItem>
+     */
     private function loadRekapRekeningItems(?TahunAnggaran $tahunAnggaranAktif, int $bulan, ?int $sekolahId = null, ?int $perPage = null, $rencanaSub = null, $realisasiSub = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $sumberDanaId = request('sumber_dana_id');
@@ -814,10 +879,10 @@ class LaporanController extends Controller
         $query = RkasItem::withoutGlobalScope('sekolah')->with('kodeRekening.jenisBelanja', 'program')
             ->select('rkas_item.*')
             ->selectRaw('COALESCE(rib.total, 0) as rencana_bulan')
-            ->selectRaw('COALESCE(tb.total, 0) as realisasi_bulan')
-            ->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('rkas_item.id', '=', 'rib.rkas_item_id'))
-            ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
-            ->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
+            ->selectRaw('COALESCE(tb.total, 0) as realisasi_bulan');
+        $query->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('rkas_item.id', '=', 'rib.rkas_item_id'));
+        $query->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'));
+        $query->where('rkas_item.tahun_anggaran_id', $tahunAnggaranAktif->id);
 
         if ($sekolahId) {
             $query->where('rkas_item.sekolah_id', $sekolahId);
@@ -834,9 +899,9 @@ class LaporanController extends Controller
             $query->where('rkas_item.sumber_dana_id', $sumberDanaId);
         }
 
-        $mapFn = function ($item) {
-            $rencana = (float) ($item->rencana_bulan ?? 0);
-            $realisasi = (float) ($item->realisasi_bulan ?? 0);
+        $mapFn = function (RkasItem $item) {
+            $rencana = (float) $item->rencana_bulan;
+            $realisasi = (float) $item->realisasi_bulan;
             $item->sisa_bulan = $rencana - $realisasi;
             $item->persen = $rencana > 0 ? round(($realisasi / $rencana) * 100, 1) : 0;
             return $item;
@@ -849,6 +914,11 @@ class LaporanController extends Controller
         return $query->get()->map($mapFn);
     }
 
+    /**
+     * @param int[] $bulanMonths
+     * @param \Illuminate\Database\Eloquent\Builder<\App\Models\TransaksiBku>|null $realisasiSub
+     * @return \Illuminate\Support\Collection<int, \App\Models\RkasItem>|\Illuminate\Contracts\Pagination\LengthAwarePaginator<int, \App\Models\RkasItem>
+     */
     private function loadKuartalItems(?TahunAnggaran $tahunAnggaranAktif, array $bulanMonths, ?int $sekolahId = null, ?int $perPage = null, $realisasiSub = null): \Illuminate\Support\Collection|\Illuminate\Contracts\Pagination\LengthAwarePaginator
     {
         $cases = [];
@@ -891,11 +961,11 @@ class LaporanController extends Controller
             $query->where('rkas_item.sumber_dana_id', $sumberDanaId);
         }
 
-        $mapFn = function ($item) use ($bulanMonths) {
+        $mapFn = function (RkasItem $item) use ($bulanMonths) {
             $realisasiPerBulan = [];
             $totalRealisasi = 0;
             foreach ($bulanMonths as $i => $b) {
-                $r = (float) ($item->{"m{$i}"} ?? 0);
+                $r = floatval($item->{"m{$i}"} ?? 0);
                 $realisasiPerBulan[$b] = $r;
                 $totalRealisasi += $r;
             }
@@ -911,6 +981,9 @@ class LaporanController extends Controller
         return $query->get()->map($mapFn);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function prepareRekapRekeningData(Request $request, ?ProfilSekolah $profilOverride = null, ?int $perPage = null): array
     {
         $bulan = (int) $request->get('bulan', date('n'));
@@ -926,10 +999,11 @@ class LaporanController extends Controller
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
         $programId = $request->input('program_id');
-        $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $_authU3 = auth()->user();
+        $profil = $profilOverride ?? ($_authU3 ? $_authU3->profilSekolah : null);
         $programs = Cache::remember('master_programs', 86400, fn() => MasterProgram::all());
 
-        $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
+        $sekolahId = $profilOverride->id ?? auth()->user()->sekolah_id;
         $search = $request->get('search');
 
         $rencanaSub = $tahunAnggaranAktif
@@ -964,14 +1038,14 @@ class LaporanController extends Controller
         $grandTotalRencana = 0;
         $grandTotalRealisasi = 0;
 
-        if ($tahunAnggaranAktif && $perPage && $rencanaSub && $realisasiSub) {
+        if ($tahunAnggaranAktif && $perPage) {
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
                 ->join('jenis_belanja as jb', 'jb.id', '=', 'mkr.jenis_belanja_id')
-                ->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('ri.id', '=', 'rib.rkas_item_id'))
-                ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'))
                 ->selectRaw('jb.nama, COALESCE(SUM(rib.total), 0) as total_rencana, COALESCE(SUM(tb.total), 0) as total_realisasi')
-                ->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->leftJoinSub($rencanaSub, 'rib', fn($j) => $j->on('ri.id', '=', 'rib.rkas_item_id'));
+            $rows->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'));
+            $rows = $rows->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
                 ->when($sumberDanaId, fn($q) => $q->where('ri.sumber_dana_id', $sumberDanaId))
@@ -1003,10 +1077,15 @@ class LaporanController extends Controller
                 'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
         }
 
-        $grouped = $rkasItems->groupBy(fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori');
+        $grouped = $rkasItems instanceof \Illuminate\Support\Collection
+            ? $rkasItems->groupBy(fn(RkasItem $item): string => $item->kodeRekening->jenisBelanja->nama ?? 'Tidak Terkategori')
+            : collect();
         return compact('grouped', 'rkasItems', 'profil', 'bulan', 'tahunAnggaranAktif', 'tahunList', 'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function prepareRekapKuartalData(Request $request, ?ProfilSekolah $profilOverride = null, ?int $perPage = null): array
     {
         $bulan = (int) $request->get('bulan', date('n'));
@@ -1014,7 +1093,7 @@ class LaporanController extends Controller
         $startMonth = ($kuartal - 1) * 3 + 1;
         $bulanMonths = [$startMonth, $startMonth + 1, $startMonth + 2];
         $bulanNames = array_map(
-            fn($m) => \Carbon\Carbon::create()->month($m)->translatedFormat('F'),
+            fn($m) => \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F'),
             $bulanMonths
         );
         $qLabel = 'Q' . $kuartal;
@@ -1032,10 +1111,11 @@ class LaporanController extends Controller
         $sumberDanaList = SumberDana::orderBy('kode')->get();
         $sumberDanaId = $request->input('sumber_dana_id');
         $programId = $request->input('program_id');
-        $profil = $profilOverride ?? auth()->user()->profilSekolah;
+        $_authU4 = auth()->user();
+        $profil = $profilOverride ?? ($_authU4 ? $_authU4->profilSekolah : null);
         $programs = Cache::remember('master_programs', 86400, fn() => MasterProgram::all());
 
-        $sekolahId = $profilOverride?->id ?? auth()->user()->sekolah_id;
+        $sekolahId = $profilOverride->id ?? auth()->user()->sekolah_id;
 
         $cases = [];
         foreach ($bulanMonths as $i => $b) {
@@ -1064,14 +1144,14 @@ class LaporanController extends Controller
         $grandTotalPerBulan = array_fill_keys($bulanMonths, 0);
         $grandTotalAll = 0;
 
-        if ($tahunAnggaranAktif && $perPage && $realisasiSub) {
+        if ($tahunAnggaranAktif && $perPage) {
             $search = $request->get('search');
 
             $rows = RkasItem::withoutGlobalScope('sekolah')->from('rkas_item as ri')
                 ->join('master_kode_rekening as mkr', 'mkr.id', '=', 'ri.kode_rekening_id')
                 ->join('jenis_belanja as jb', 'jb.id', '=', 'mkr.jenis_belanja_id')
-                ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'))
-                ->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
+                ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('ri.id', '=', 'tb.rkas_item_id'));
+            $rows = $rows->where('ri.tahun_anggaran_id', $tahunAnggaranAktif->id)
                 ->where('ri.sekolah_id', $sekolahId)
                 ->when($search, fn($q) => $q->where('ri.uraian', 'like', "%{$search}%"))
                 ->when($sumberDanaId, fn($q) => $q->where('ri.sumber_dana_id', $sumberDanaId))
@@ -1088,8 +1168,8 @@ class LaporanController extends Controller
                 ->get();
 
             foreach ($rows as $row) {
-                $perBulan = [(float) $row->m0, (float) $row->m1, (float) $row->m2];
-                $total = (float) $row->total;
+                $perBulan = [floatval($row->m0), floatval($row->m1), floatval($row->m2)];
+                $total = floatval($row->total);
                 $subtotals[$row->nama] = [
                     'per_bulan' => array_combine($bulanMonths, $perBulan),
                     'total' => $total,
@@ -1108,9 +1188,9 @@ class LaporanController extends Controller
                 'sumberDanaList', 'sumberDanaId', 'programs', 'programId');
         }
 
-        $grouped = $quarterlyItems->groupBy(
-            fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori'
-        );
+        $grouped = $quarterlyItems instanceof \Illuminate\Support\Collection
+            ? $quarterlyItems->groupBy(fn(RkasItem $item): string => $item->kodeRekening->jenisBelanja->nama ?? 'Tidak Terkategori')
+            : collect();
         return compact('grouped', 'profil', 'tahunAnggaranAktif',
             'qLabel', 'periodeLabel', 'bulanMonths', 'bulanNames', 'kuartal', 'bulan', 'tahunList',
             'sumberDanaList', 'sumberDanaId', 'programs', 'programId');

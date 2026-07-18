@@ -151,7 +151,7 @@ return [
              * The disk names on which the backups will be stored.
              */
             'disks' => [
-                'local',
+                env('BACKUP_DISK', 'local'),
             ],
         ],
 
@@ -196,22 +196,18 @@ return [
      */
     'notifications' => [
         'notifications' => [
-            \Spatie\Backup\Notifications\Notifications\BackupHasFailedNotification::class => ['mail'],
-            \Spatie\Backup\Notifications\Notifications\UnhealthyBackupWasFoundNotification::class => ['mail'],
-            \Spatie\Backup\Notifications\Notifications\CleanupHasFailedNotification::class => ['mail'],
-            \Spatie\Backup\Notifications\Notifications\BackupWasSuccessfulNotification::class => ['mail'],
-            \Spatie\Backup\Notifications\Notifications\HealthyBackupWasFoundNotification::class => ['mail'],
-            \Spatie\Backup\Notifications\Notifications\CleanupWasSuccessfulNotification::class => ['mail'],
+            \Spatie\Backup\Notifications\Notifications\BackupHasFailedNotification::class => [],
+            \Spatie\Backup\Notifications\Notifications\UnhealthyBackupWasFoundNotification::class => [],
+            \Spatie\Backup\Notifications\Notifications\CleanupHasFailedNotification::class => [],
+            \Spatie\Backup\Notifications\Notifications\BackupWasSuccessfulNotification::class => [],
+            \Spatie\Backup\Notifications\Notifications\HealthyBackupWasFoundNotification::class => [],
+            \Spatie\Backup\Notifications\Notifications\CleanupWasSuccessfulNotification::class => [],
         ],
 
-        /*
-         * Here you can specify the notifiable to which the notifications should be sent. The default
-         * notifiable will use the variables specified in this config file.
-         */
         'notifiable' => \Spatie\Backup\Notifications\Notifiable::class,
 
         'mail' => [
-            'to' => 'your@example.com',
+            'to' => env('BACKUP_NOTIFICATION_EMAIL', 'admin@sekolah.sch.id'),
 
             'from' => [
                 'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
@@ -221,28 +217,14 @@ return [
 
         'slack' => [
             'webhook_url' => '',
-
-            /*
-             * If this is set to null the default channel of the webhook will be used.
-             */
             'channel' => null,
-
             'username' => null,
-
             'icon' => null,
         ],
 
         'discord' => [
             'webhook_url' => '',
-
-            /*
-             * If this is an empty string, the name field on the webhook will be used.
-             */
             'username' => '',
-
-            /*
-             * If this is an empty string, the avatar on the webhook will be used.
-             */
             'avatar_url' => '',
         ],
     ],

@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,7 +11,14 @@ use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class User extends Authenticatable
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $email
+ * @property int|null $sekolah_id
+ * @property bool $is_active
+ */
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, HasRoles;
@@ -55,6 +62,7 @@ class User extends Authenticatable
         ];
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\ProfilSekolah, $this> */
     public function profilSekolah(): BelongsTo
     {
         return $this->belongsTo(ProfilSekolah::class, 'sekolah_id');
@@ -65,6 +73,7 @@ class User extends Authenticatable
         return $this->hasRole('admin-kecamatan');
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\ExportJob, $this> */
     public function exportJobs(): HasMany
     {
         return $this->hasMany(ExportJob::class);

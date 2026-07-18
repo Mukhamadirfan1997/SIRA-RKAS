@@ -4,38 +4,44 @@ namespace App\Exports;
 
 use App\Models\TransaksiBku;
 use App\Models\TahunAnggaran;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithMapping;
 
+/** @implements WithMapping<TransaksiBku> */
 class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 {
+    /** @var array<int, int> */
     protected array $months;
     protected ?int $sekolahId;
     protected string $periodeLabel;
     protected ?int $tahunAnggaranId;
     protected ?int $sumberDanaId;
 
+    /** @param array<int, int> $months */
     public function __construct(array $months, ?int $sekolahId = null, string $periodeLabel = '', ?int $tahunAnggaranId = null, ?int $sumberDanaId = null)
     {
         $this->months = $months;
         $this->sekolahId = $sekolahId;
         $this->periodeLabel = $periodeLabel;
-        $this->tahunAnggaranId = $tahunAnggaranId ?? \App\Models\TahunAnggaran::where('status', true)->value('id');
+        $this->tahunAnggaranId = $tahunAnggaranId ?? (function () {
+    $ta = \App\Models\TahunAnggaran::where('status', true)->first(['id']);
+    return $ta ? $ta->id : 0;
+})();
         $this->sumberDanaId = $sumberDanaId;
     }
 
+    /** @return Collection<int, TransaksiBku> */
     public function collection()
     {
-        $query = TransaksiBku::where('transaksi_bku.tahun_anggaran_id', $this->tahunAnggaranId)
-            ->where('jenis', 'pengeluaran')
-            ->whereIn('bulan', $this->months)
+        $query = TransaksiBku::withoutGlobalScope('sekolah')
+            ->where('transaksi_bku.tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('transaksi_bku.jenis', 'pengeluaran')
+            ->whereIn('transaksi_bku.bulan', $this->months)
+            ->when($this->sekolahId, fn($q) => $q->where('transaksi_bku.sekolah_id', $this->sekolahId))
             ->when($this->sumberDanaId, fn($q) => $q->where('transaksi_bku.sumber_dana_id', $this->sumberDanaId));
-
-        if ($this->sekolahId) {
-            $query->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId);
-        }
 
         $rows = $query
             ->join('rkas_item', 'rkas_item.id', '=', 'transaksi_bku.rkas_item_id')
@@ -55,20 +61,21 @@ class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, With
                 $siplah = (float) $row->siplah;
                 $nonSiplah = (float) $row->non_siplah;
                 $belumDiisi = $total - $siplah - $nonSiplah;
-                return (object) [
-                    'jenis_belanja' => $row->jenis_belanja,
-                    'total' => $total,
-                    'siplah' => $siplah,
-                    'non_siplah' => $nonSiplah,
-                    'belum_diisi' => max(0, $belumDiisi),
-                    'persen_siplah' => $total > 0 ? round(($siplah / $total) * 100, 1) : 0,
-                    'persen_non_siplah' => $total > 0 ? round(($nonSiplah / $total) * 100, 1) : 0,
-                ];
+                $result = new TransaksiBku();
+                $result->setAttribute('jenis_belanja', $row->jenis_belanja);
+                $result->setAttribute('total', $total);
+                $result->setAttribute('siplah', $siplah);
+                $result->setAttribute('non_siplah', $nonSiplah);
+                $result->setAttribute('belum_diisi', max(0, $belumDiisi));
+                $result->setAttribute('persen_siplah', $total > 0 ? round(($siplah / $total) * 100, 1) : 0);
+                $result->setAttribute('persen_non_siplah', $total > 0 ? round(($nonSiplah / $total) * 100, 1) : 0);
+                return $result;
             });
 
         return $rows;
     }
 
+    /** @return array<int, string> */
     public function headings(): array
     {
         return [
@@ -82,6 +89,7 @@ class RekapSiplahExport implements FromCollection, WithHeadings, WithTitle, With
         ];
     }
 
+    /** @return array<int, string> */
     public function map($row): array
     {
         return [

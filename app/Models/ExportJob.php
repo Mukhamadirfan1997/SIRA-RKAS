@@ -2,11 +2,25 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $status
+ * @property string $file_path
+ * @property string $filename
+ * @property string $error_message
+ * @property \Carbon\Carbon|null $completed_at
+ * @use HasFactory<\Database\Factories\ExportJobFactory>
+ */
 class ExportJob extends Model
 {
+    /** @use HasFactory<\Database\Factories\ExportJobFactory> */
+    use HasFactory;
     protected $table = 'export_jobs';
 
     protected $fillable = [
@@ -23,24 +37,28 @@ class ExportJob extends Model
         'completed_at' => 'datetime',
     ];
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function scopeForUser($query, $userId)
+    /** @param \Illuminate\Database\Eloquent\Builder<\App\Models\ExportJob> $query */
+    public function scopeForUser(Builder $query, int $userId): void
     {
-        return $query->where('user_id', $userId);
+        $query->where('user_id', $userId);
     }
 
-    public function scopeCompleted($query)
+    /** @param \Illuminate\Database\Eloquent\Builder<\App\Models\ExportJob> $query */
+    public function scopeCompleted(Builder $query): void
     {
-        return $query->where('status', 'completed');
+        $query->where('status', 'completed');
     }
 
-    public function scopeProcessing($query)
+    /** @param \Illuminate\Database\Eloquent\Builder<\App\Models\ExportJob> $query */
+    public function scopeProcessing(Builder $query): void
     {
-        return $query->where('status', 'processing');
+        $query->where('status', 'processing');
     }
 
     public function isCompleted(): bool

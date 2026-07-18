@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\RkasItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\RkasItemBulan> */
 class RkasItemBulanFactory extends Factory
 {
     public function definition(): array

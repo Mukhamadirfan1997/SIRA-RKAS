@@ -10,7 +10,7 @@ use Illuminate\Validation\Rules;
 
 class UserSekolahController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\View\View
     {
         $query = User::with('profilSekolah')->orderBy('name');
 
@@ -25,13 +25,13 @@ class UserSekolahController extends Controller
         return view('user-sekolah.index', compact('users'));
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
         $sekolahs = ProfilSekolah::orderBy('nama')->get();
         return view('user-sekolah.create', compact('sekolahs'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'name'       => 'required|string|max:255',
@@ -60,13 +60,13 @@ class UserSekolahController extends Controller
         return redirect()->route('user-sekolah.index')->with('success', 'User berhasil ditambahkan.');
     }
 
-    public function edit(User $user_sekolah)
+    public function edit(User $user_sekolah): \Illuminate\View\View
     {
         $sekolahs = ProfilSekolah::orderBy('nama')->get();
         return view('user-sekolah.edit', ['user' => $user_sekolah, 'sekolahs' => $sekolahs]);
     }
 
-    public function update(Request $request, User $user_sekolah)
+    public function update(Request $request, User $user_sekolah): \Illuminate\Http\RedirectResponse
     {
         $rules = [
             'name'       => 'required|string|max:255',
@@ -101,7 +101,7 @@ class UserSekolahController extends Controller
         return redirect()->route('user-sekolah.index')->with('success', 'User berhasil diupdate.');
     }
 
-    public function destroy(User $user_sekolah)
+    public function destroy(User $user_sekolah): \Illuminate\Http\RedirectResponse
     {
         $user_sekolah->delete();
         return back()->with('success', 'User berhasil dihapus.');
@@ -110,10 +110,10 @@ class UserSekolahController extends Controller
     /**
      * Reset password ke NPSN sekolah user (atau 'sira-rkas' jika tidak punya sekolah)
      */
-    public function resetPassword(User $user_sekolah)
+    public function resetPassword(User $user_sekolah): \Illuminate\Http\RedirectResponse
     {
         $user_sekolah->load('profilSekolah');
-        $npsn = $user_sekolah->profilSekolah?->npsn ?? '';
+        $npsn = $user_sekolah->profilSekolah->npsn ?? '';
         $defaultPassword = 'sira-rkas@' . $npsn;
         $user_sekolah->update(['password' => Hash::make($defaultPassword)]);
         return back()->with('success', 'Password ' . $user_sekolah->name . ' telah direset ke: ' . $defaultPassword);
@@ -122,7 +122,7 @@ class UserSekolahController extends Controller
     /**
      * Toggle aktif/nonaktif akun
      */
-    public function toggleActive(User $user_sekolah)
+    public function toggleActive(User $user_sekolah): \Illuminate\Http\RedirectResponse
     {
         $user_sekolah->update(['is_active' => !$user_sekolah->is_active]);
         $status = $user_sekolah->is_active ? 'diaktifkan' : 'dinonaktifkan';

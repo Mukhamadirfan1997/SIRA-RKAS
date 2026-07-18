@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 
 class ProfilSekolahController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\View\View
     {
         $query = ProfilSekolah::with('kecamatanRef');
 
@@ -23,13 +23,13 @@ class ProfilSekolahController extends Controller
         return view('profil-sekolah.index', compact('profils'));
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
         $kecamatans = Kecamatan::all();
         return view('profil-sekolah.create', compact('kecamatans'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'npsn' => 'required|string|unique:profil_sekolah',
@@ -45,13 +45,13 @@ class ProfilSekolahController extends Controller
         return redirect()->route('profil-sekolah.index')->with('success', 'Profil Sekolah berhasil ditambahkan.');
     }
 
-    public function edit(ProfilSekolah $profil_sekolah)
+    public function edit(ProfilSekolah $profil_sekolah): \Illuminate\View\View
     {
         $kecamatans = Kecamatan::all();
         return view('profil-sekolah.edit', ['profil' => $profil_sekolah, 'kecamatans' => $kecamatans]);
     }
 
-    public function update(Request $request, ProfilSekolah $profil_sekolah)
+    public function update(Request $request, ProfilSekolah $profil_sekolah): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'npsn' => 'required|string|unique:profil_sekolah,npsn,' . $profil_sekolah->id,
@@ -67,7 +67,7 @@ class ProfilSekolahController extends Controller
         return redirect()->route('profil-sekolah.index')->with('success', 'Profil Sekolah berhasil diupdate.');
     }
 
-    public function destroy(ProfilSekolah $profil_sekolah)
+    public function destroy(ProfilSekolah $profil_sekolah): \Illuminate\Http\RedirectResponse
     {
         $profil_sekolah->delete();
         return back()->with('success', 'Profil Sekolah berhasil dihapus.');

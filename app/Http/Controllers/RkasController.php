@@ -9,6 +9,7 @@ use App\Models\TahunAnggaran;
 use App\Models\SumberDana;
 use App\Models\MasterProgram;
 use App\Models\MasterKodeRekening;
+use App\Models\TransaksiBku;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Maatwebsite\Excel\Facades\Excel;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 class RkasController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\View\View
     {
         $bulan = $request->get('bulan', date('n'));
         $programId = $request->get('program_id');
@@ -46,7 +47,7 @@ class RkasController extends Controller
         $rkasItems = collect();
 
         if ($tahunAnggaranAktif) {
-            $baseQuery = TahunAnggaran::find($tahunAnggaranAktif->id)->rkasItems();
+            $baseQuery = $tahunAnggaranAktif->rkasItems()->getQuery();
 
             if ($programId) {
                 $baseQuery->where('program_id', $programId);
@@ -68,7 +69,7 @@ class RkasController extends Controller
 
             $totalJumlah = RkasItem::whereIn('id', $filteredIds())->sum('jumlah');
 
-            $totalRealisasi = \App\Models\TransaksiBku::joinSub($filteredIds(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
+            $totalRealisasi = TransaksiBku::joinSub($filteredIds(), 'ri_filtered', fn($j) => $j->on('transaksi_bku.rkas_item_id', '=', 'ri_filtered.id'))
                 ->where('transaksi_bku.jenis', 'pengeluaran')
                 ->sum('transaksi_bku.jumlah');
 
@@ -96,7 +97,7 @@ class RkasController extends Controller
         ));
     }
 
-    public function edit(RkasItem $rkasItem)
+    public function edit(RkasItem $rkasItem): \Illuminate\View\View
     {
         $tahunAnggaranAktif = TahunAnggaran::getActive();
         $masterPrograms = MasterProgram::orderBy('kode')->get();
@@ -106,7 +107,7 @@ class RkasController extends Controller
         return view('rkas.edit', compact('rkasItem', 'masterPrograms', 'masterKodeRekenings', 'sumberDanas'));
     }
 
-    public function update(Request $request, RkasItem $rkasItem)
+    public function update(Request $request, RkasItem $rkasItem): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'no_urut' => 'required|integer',
@@ -127,7 +128,7 @@ class RkasController extends Controller
         return redirect()->route('rkas.index')->with('success', 'Item RKAS berhasil diupdate.');
     }
 
-    public function destroy(RkasItem $rkasItem)
+    public function destroy(RkasItem $rkasItem): \Illuminate\Http\RedirectResponse
     {
         $rkasItem->delete();
 

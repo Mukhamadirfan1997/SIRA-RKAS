@@ -8,6 +8,7 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 
 class MasterKodeRekeningTemplateExport implements FromArray, WithHeadings, WithTitle
 {
+    /** @return array<int, array<int, string>> */
     public function array(): array
     {
         return [
@@ -16,6 +17,7 @@ class MasterKodeRekeningTemplateExport implements FromArray, WithHeadings, WithT
         ];
     }
 
+    /** @return array<int, string> */
     public function headings(): array
     {
         return [

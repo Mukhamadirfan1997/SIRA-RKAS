@@ -4,6 +4,7 @@ namespace App\Imports;
 
 use App\Models\MasterKodeRekening;
 use App\Models\JenisBelanja;
+use Illuminate\Database\Eloquent\Model;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithStartRow;
@@ -11,12 +12,16 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class MasterKodeRekeningImport implements WithMultipleSheets
 {
+    /**
+     * @return array<int, object>
+     */
     public function sheets(): array
     {
         return [
             0 => new class implements ToModel, WithHeadingRow {
                 
-                private $rules = [
+                /** @var array<string, string> */
+                private array $rules = [
                     '5.1.02.01' => 'Belanja Barang Persediaan',
                     '5.1.02.02' => 'Belanja Jasa',
                     '5.1.02.03' => 'Belanja Jasa Pemeliharaan',
@@ -28,8 +33,13 @@ class MasterKodeRekeningImport implements WithMultipleSheets
                     '5.1'       => 'Belanja Lainnya',
                 ];
 
-                private $jenisMapCache = [];
+                /** @var array<string, int> */
+                private array $jenisMapCache = [];
 
+                /**
+                 * @param array<string, mixed> $row
+                 * @return Model
+                 */
                 public function model(array $row)
                 {
                     $kode = $row['kode_barang'];

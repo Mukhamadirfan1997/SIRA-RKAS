@@ -7,11 +7,14 @@ use App\Models\AuditLog;
 
 class RkasItemObserver
 {
+    public static ?int $importUserId = null;
+
     public function created(RkasItem $item): void
     {
-        if (auth()->check()) {
+        $userId = static::$importUserId ?? auth()->id();
+        if ($userId) {
             AuditLog::create([
-                'user_id' => auth()->id(),
+                'user_id' => $userId,
                 'tabel' => 'rkas_item',
                 'aksi' => 'create',
                 'data_baru' => $item->toArray(),
@@ -21,9 +24,10 @@ class RkasItemObserver
 
     public function updated(RkasItem $item): void
     {
-        if (auth()->check()) {
+        $userId = static::$importUserId ?? auth()->id();
+        if ($userId) {
             AuditLog::create([
-                'user_id' => auth()->id(),
+                'user_id' => $userId,
                 'tabel' => 'rkas_item',
                 'aksi' => 'update',
                 'data_lama' => $item->getOriginal(),
@@ -34,9 +38,10 @@ class RkasItemObserver
 
     public function deleted(RkasItem $item): void
     {
-        if (auth()->check()) {
+        $userId = static::$importUserId ?? auth()->id();
+        if ($userId) {
             AuditLog::create([
-                'user_id' => auth()->id(),
+                'user_id' => $userId,
                 'tabel' => 'rkas_item',
                 'aksi' => 'delete',
                 'data_lama' => $item->toArray(),

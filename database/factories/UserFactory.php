@@ -55,10 +55,10 @@ class UserFactory extends Factory
         ]);
     }
 
-    public function sekolah(\App\Models\ProfilSekolah $profil): static
+    public function sekolah(\Illuminate\Database\Eloquent\Model $profil): static
     {
         return $this->state(fn (array $attributes) => [
-            'sekolah_id' => $profil->id,
+            'sekolah_id' => $profil->getKey(),
             'is_active' => true,
         ]);
     }

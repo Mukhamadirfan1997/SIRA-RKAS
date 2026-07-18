@@ -7,18 +7,18 @@ use Illuminate\Http\Request;
 
 class KecamatanController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\View\View
     {
         $kecamatans = Kecamatan::paginate(50);
         return view('kecamatan.index', compact('kecamatans'));
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
         return view('kecamatan.create');
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
@@ -29,12 +29,12 @@ class KecamatanController extends Controller
         return redirect()->route('kecamatan.index')->with('success', 'Kecamatan berhasil ditambahkan.');
     }
 
-    public function edit(Kecamatan $kecamatan)
+    public function edit(Kecamatan $kecamatan): \Illuminate\View\View
     {
         return view('kecamatan.edit', compact('kecamatan'));
     }
 
-    public function update(Request $request, Kecamatan $kecamatan)
+    public function update(Request $request, Kecamatan $kecamatan): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
@@ -45,7 +45,7 @@ class KecamatanController extends Controller
         return redirect()->route('kecamatan.index')->with('success', 'Kecamatan berhasil diupdate.');
     }
 
-    public function destroy(Kecamatan $kecamatan)
+    public function destroy(Kecamatan $kecamatan): \Illuminate\Http\RedirectResponse
     {
         $kecamatan->delete();
         return back()->with('success', 'Kecamatan berhasil dihapus.');

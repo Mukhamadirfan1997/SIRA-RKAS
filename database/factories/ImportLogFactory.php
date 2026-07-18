@@ -6,6 +6,7 @@ use App\Models\ProfilSekolah;
 use App\Models\TahunAnggaran;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\ImportLog> */
 class ImportLogFactory extends Factory
 {
     public function definition(): array

@@ -7,6 +7,7 @@ use App\Models\RkasItem;
 use App\Models\TahunAnggaran;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\TransaksiBku> */
 class TransaksiBkuFactory extends Factory
 {
     public function definition(): array

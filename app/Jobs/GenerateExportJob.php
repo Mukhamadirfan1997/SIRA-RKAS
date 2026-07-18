@@ -15,6 +15,9 @@ class GenerateExportJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * @param array<string, mixed> $exportParams
+     */
     public function __construct(
         protected int $exportJobId,
         protected string $exportClass,

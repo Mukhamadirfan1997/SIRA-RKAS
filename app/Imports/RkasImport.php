@@ -9,16 +9,18 @@ use App\Models\ImportLog;
 use App\Models\RkasItemBulan;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithStartRow;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 
-class RkasImport implements ToModel, WithStartRow
+class RkasImport implements ToModel, WithStartRow, WithHeadingRow, WithChunkReading
 {
-    protected $tahunAnggaranId;
-    protected $sekolahId;
-    protected $bulan;
-    protected $sumberDanaId;
-    protected $importLogId;
+    protected int $tahunAnggaranId;
+    protected int $sekolahId;
+    protected int $bulan;
+    protected int $sumberDanaId;
+    protected int $importLogId;
 
-    public function __construct($tahunAnggaranId, $sekolahId, $bulan, $sumberDanaId, $importLogId)
+    public function __construct(int $tahunAnggaranId, int $sekolahId, int $bulan, int $sumberDanaId, int $importLogId)
     {
         $this->tahunAnggaranId = $tahunAnggaranId;
         $this->sekolahId = $sekolahId;
@@ -29,22 +31,40 @@ class RkasImport implements ToModel, WithStartRow
 
     public function startRow(): int
     {
-        return 10;
+        return 2;
     }
 
+    public function headingRow(): int
+    {
+        return 1;
+    }
+
+    public function chunkSize(): int
+    {
+        return 100;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
     public function model(array $row)
     {
-        // $row is 0-indexed: A=0, B=1, C=2, ...
-        $noUrut       = trim($row[0] ?? '');
-        $kodeRekening = trim($row[1] ?? '');
-        $kodeProgram  = trim($row[5] ?? '');
-        $uraian       = trim($row[9] ?? '');
-        $volume       = $row[14] ?? null;
-        $satuan       = trim($row[16] ?? '');
-        $tarif        = $row[17] ?? null;
-        $jumlah       = $row[19] ?? null;
+        $noUrut       = trim($row['no_urut'] ?? '');
+        $kodeRekening = trim($row['kode_rekening'] ?? '');
+        $kodeProgram  = trim($row['kode_program'] ?? '');
+        $uraian       = trim($row['uraian'] ?? '');
+        $volume       = $row['volume'] ?? null;
+        $satuan       = trim($row['satuan'] ?? '');
+        $tarif        = $row['tarif'] ?? null;
+        $jumlah       = $row['jumlah'] ?? null;
 
         if (!is_numeric($noUrut) || empty($uraian) || !is_numeric($jumlah)) {
+            return null;
+        }
+
+        $parsedJumlah = $this->parseNumber($jumlah);
+        if ($parsedJumlah < 0) {
+            $this->logError("No. Urut $noUrut: Jumlah tidak boleh negatif ($parsedJumlah)");
             return null;
         }
 
@@ -53,11 +73,10 @@ class RkasImport implements ToModel, WithStartRow
         }
 
         $kodeProgram = str_replace(' ', '', $kodeProgram);
-        $kodeProgram = rtrim($kodeProgram, '.');
 
         $program = null;
         if (!empty($kodeProgram)) {
-            $program = MasterProgram::where('kode', $kodeProgram . '.')->first();
+            $program = MasterProgram::where('kode', $kodeProgram)->first();
         }
 
         if (!$program) {
@@ -72,27 +91,45 @@ class RkasImport implements ToModel, WithStartRow
             return null;
         }
 
-        $parsedJumlah = $this->parseNumber($jumlah);
+        $parsedVolume = $this->parseNumber($volume);
+        if ($parsedVolume < 0) {
+            $this->logError("No. Urut $noUrut: Volume tidak boleh negatif");
+            return null;
+        }
 
-        $rkasItem = RkasItem::create([
-            'sekolah_id'        => $this->sekolahId,
-            'tahun_anggaran_id' => $this->tahunAnggaranId,
-            'no_urut'           => (int) $noUrut,
-            'uraian'            => $uraian,
-            'program_id'        => $program->id,
-            'kode_rekening_id'  => $kodeRekeningRecord->id,
-            'sumber_dana_id'    => $this->sumberDanaId,
-            'volume'            => $this->parseNumber($volume),
-            'satuan'            => $satuan,
-            'tarif'             => $this->parseNumber($tarif),
-            'jumlah'            => $parsedJumlah,
-        ]);
+        $parsedTarif = $this->parseNumber($tarif);
+        if ($parsedTarif < 0) {
+            $this->logError("No. Urut $noUrut: Tarif tidak boleh negatif");
+            return null;
+        }
 
-        RkasItemBulan::create([
-            'rkas_item_id' => $rkasItem->id,
-            'bulan'        => $this->bulan,
-            'rencana'      => $parsedJumlah,
-        ]);
+        $rkasItem = RkasItem::updateOrCreate(
+            [
+                'sekolah_id'        => $this->sekolahId,
+                'tahun_anggaran_id' => $this->tahunAnggaranId,
+                'no_urut'           => (int) $noUrut,
+                'sumber_dana_id'    => $this->sumberDanaId,
+            ],
+            [
+                'uraian'            => $uraian,
+                'program_id'        => $program->id,
+                'kode_rekening_id'  => $kodeRekeningRecord->id,
+                'volume'            => $parsedVolume,
+                'satuan'            => $satuan,
+                'tarif'             => $parsedTarif,
+                'jumlah'            => $parsedJumlah,
+            ]
+        );
+
+        RkasItemBulan::updateOrCreate(
+            [
+                'rkas_item_id' => $rkasItem->id,
+                'bulan'        => $this->bulan,
+            ],
+            [
+                'rencana'      => $parsedJumlah,
+            ]
+        );
 
         $this->incrementBerhasil();
 
@@ -119,7 +156,7 @@ class RkasImport implements ToModel, WithStartRow
             ->increment('baris_berhasil');
     }
 
-    protected function parseNumber($value)
+    protected function parseNumber(mixed $value): float|int
     {
         if ($value === null || $value === '') return 0;
         if (is_numeric($value)) return (float) $value;

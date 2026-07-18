@@ -21,11 +21,17 @@
         @if($tahunAnggaranAktif)
         <div class="card">
             <div class="card-header">
-                <span class="card-title">Upload File Excel RKAS</span>
-                <a href="{{ route('rkas.index') }}" class="btn btn-secondary btn-sm">
+                    <span class="card-title">Upload File Excel RKAS</span>
+                <div class="flex gap-2">
+                    <a href="{{ route('import-rkas.download-template') }}" class="btn btn-outline btn-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Download Template
+                    </a>
+                    <a href="{{ route('rkas.index') }}" class="btn btn-secondary btn-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                     Kembali
                 </a>
+                </div>
             </div>
             <div class="card-body">
                 <form action="{{ route('import-rkas.store') }}" method="POST" enctype="multipart/form-data">

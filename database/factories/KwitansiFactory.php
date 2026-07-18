@@ -6,6 +6,7 @@ use App\Models\ProfilSekolah;
 use App\Models\TransaksiBku;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Kwitansi> */
 class KwitansiFactory extends Factory
 {
     public function definition(): array

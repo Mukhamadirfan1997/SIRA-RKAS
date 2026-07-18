@@ -16,9 +16,10 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class TransaksiBkuController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\View\View
     {
-        $bulan = $request->input('bulan', date('n'));
+        $bulanRaw = $request->input('bulan', date('n'));
+        $bulan = is_string($bulanRaw) || is_numeric($bulanRaw) ? $bulanRaw : '';
         $tahunAnggaranAktif = TahunAnggaran::getActive();
         $tahunList = TahunAnggaran::orderBy('tahun', 'desc')->get();
 
@@ -38,15 +39,17 @@ class TransaksiBkuController extends Controller
             ->orderBy('id');
 
         if ($bulan !== '') {
-            $query->where('bulan', (int) $bulan);
+            $query->where('bulan', is_numeric($bulan) ? (int) $bulan : 0);
         }
 
         if ($sumberDanaId) {
             $query->where('sumber_dana_id', $sumberDanaId);
         }
 
-        if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
+        $searchRaw = $request->input('search');
+        $search = is_string($searchRaw) ? $searchRaw : '';
+        if ($search !== '') {
+            $query->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($search) {
                 $q->where('no_bukti', 'LIKE', "%{$search}%")
                   ->orWhere('uraian', 'LIKE', "%{$search}%")
                   ->orWhere('toko_penerima', 'LIKE', "%{$search}%");
@@ -57,16 +60,18 @@ class TransaksiBkuController extends Controller
 
         $saldoAwal = 0;
         if ($bulan !== '') {
-            $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
-                ->where('bulan', '<', (int) $bulan)
+            $saldoRecord = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+                ->where('bulan', '<', is_numeric($bulan) ? (int) $bulan : 0)
                 ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
                 ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
-                ->value('saldo') ?? 0;
+                ->first();
+            $saldoAwal = $saldoRecord ? (float) $saldoRecord->saldo : 0.0;
         } else {
-            $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
+            $saldoRecord = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranAktif?->id)
                 ->when($sumberDanaId, fn($q) => $q->where('sumber_dana_id', $sumberDanaId))
                 ->selectRaw("SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END) as saldo")
-                ->value('saldo') ?? 0;
+                ->first();
+            $saldoAwal = $saldoRecord ? (float) $saldoRecord->saldo : 0.0;
         }
 
         $saldo = $saldoAwal;
@@ -82,7 +87,7 @@ class TransaksiBkuController extends Controller
             ->selectRaw("
                 COALESCE(SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE 0 END), 0) as total_penerimaan,
                 COALESCE(SUM(CASE WHEN LOWER(jenis) = 'pengeluaran' THEN jumlah ELSE 0 END), 0) as total_pengeluaran
-            ")->first();
+            ")->firstOrFail();
         $totalPenerimaan = (float) $totals->total_penerimaan;
         $totalPengeluaran = (float) $totals->total_pengeluaran;
         $saldoAkhir = $totalPenerimaan - $totalPengeluaran;
@@ -106,11 +111,13 @@ class TransaksiBkuController extends Controller
         ));
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
-        $profil = auth()->user()->profilSekolah;
+        $authUser = auth()->user();
+        $profil = $authUser ? $authUser->profilSekolah : null;
         $npsn = $profil ? $profil->npsn : '00000000';
-        $tahunAnggaranId = TahunAnggaran::where('status', true)->value('id');
+        $tahunAnggaranRecord = TahunAnggaran::where('status', true)->first(['id']);
+        $tahunAnggaranId = $tahunAnggaranRecord ? $tahunAnggaranRecord->id : 0;
 
         $countPenerimaan = TransaksiBku::where('tahun_anggaran_id', $tahunAnggaranId)
             ->where('jenis', 'penerimaan')->count() + 1;
@@ -120,7 +127,7 @@ class TransaksiBkuController extends Controller
         return view('transaksi-bku.create', compact('npsn', 'countPenerimaan', 'countPengeluaran'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'rkas_item_id' => 'nullable|exists:rkas_item,id',
@@ -131,44 +138,77 @@ class TransaksiBkuController extends Controller
             'toko_penerima' => 'nullable|string|max:255',
             'metode_pengadaan' => 'nullable|string|in:siplah,non_siplah',
             'uraian' => 'nullable|string',
+            'override_anggaran' => 'nullable|in:1,on,true',
+            'override_note' => 'nullable|string|max:500',
         ]);
 
-        $validated['created_by'] = auth()->id();
-        $validated['sekolah_id'] = auth()->user()->sekolah_id;
-        $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
-        $validated['tahun_anggaran_id'] = TahunAnggaran::where('status', true)->value('id');
+        $tanggal = (string) $validated['tanggal'];
+        $jenis = (string) $validated['jenis'];
+        $jumlah = (float) $validated['jumlah'];
+        $rkasItemId = $validated['rkas_item_id'] ?? null;
+        $noBukti = (string) $validated['no_bukti'];
+        $overrideNote = $validated['override_note'] ?? null;
 
-        if ($validated['rkas_item_id']) {
-            $rkasItem = RkasItem::find($validated['rkas_item_id']);
+        $user = auth()->user();
+        if ($user === null) {
+            abort(403);
+        }
+
+        $validated['created_by'] = $user->id;
+        $validated['sekolah_id'] = $user->sekolah_id;
+        $validated['bulan'] = (int) Carbon::parse($tanggal)->month;
+        $taRec = TahunAnggaran::where('status', true)->first(['id']);
+        $validated['tahun_anggaran_id'] = $taRec ? $taRec->id : 0;
+
+        if (!empty($rkasItemId)) {
+            $rkasItem = RkasItem::find($rkasItemId);
             $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
         }
 
-        // Validasi: Sisa anggaran bulan berjalan (uang cair kumulatif sampai bulan ini - pengeluaran kumulatif)
-        if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {
-            $rkasItem = RkasItem::with('bulanRencana')->findOrFail($validated['rkas_item_id']);
-            
+        if ($jenis == 'pengeluaran' && !empty($rkasItemId)) {
+            $rkasItem = RkasItem::with('bulanRencana')->findOrFail($rkasItemId);
+
             $rencanaKumulatif = $rkasItem->bulanRencana->where('bulan', '<=', $validated['bulan'])->sum('rencana');
             $realisasiKumulatif = $rkasItem->transaksiBkus()
                                            ->where('jenis', 'pengeluaran')
                                            ->where('bulan', '<=', $validated['bulan'])
                                            ->sum('jumlah');
-            
+
             $sisaBulanBerjalan = $rencanaKumulatif - $realisasiKumulatif;
 
-            if ($validated['jumlah'] > $sisaBulanBerjalan) {
-                return back()->with('error', 'Gagal: Nominal Rp ' . number_format($validated['jumlah'], 0, ',', '.') . 
-                                             ' melebihi sisa anggaran bulan berjalan (Rp ' . number_format($sisaBulanBerjalan, 0, ',', '.') . ').');
+            $isOverriding = $request->boolean('override_anggaran') && !empty($overrideNote);
+
+            if ($jumlah > $sisaBulanBerjalan && !$isOverriding) {
+                return back()->with('error', 'Gagal: Nominal Rp ' . number_format($jumlah, 0, ',', '.') .
+                                             ' melebihi sisa anggaran bulan berjalan (Rp ' . number_format($sisaBulanBerjalan, 0, ',', '.') . '). Gunakan opsi override jika ingin melanjutkan.');
+            }
+
+            if ($isOverriding) {
+                \App\Models\AuditLog::create([
+                    'user_id' => $user->id,
+                    'sekolah_id' => $user->sekolah_id,
+                    'tabel' => 'transaksi_bku',
+                    'aksi' => 'override_anggaran',
+                    'data_baru' => [
+                        'no_bukti' => $noBukti,
+                        'jumlah' => $jumlah,
+                        'sisa_anggaran' => $sisaBulanBerjalan,
+                        'catatan' => $overrideNote,
+                    ],
+                ]);
             }
         }
 
+        unset($validated['override_anggaran'], $validated['override_note']);
+
         TransaksiBku::create($validated);
 
-        Cache::increment('dash_ver_' . auth()->id());
+        Cache::increment('dash_ver_' . $user->id);
 
         return redirect()->route('transaksi-bku.index')->with('success', 'Transaksi berhasil ditambahkan.');
     }
 
-    public function edit(TransaksiBku $transaksiBku)
+    public function edit(TransaksiBku $transaksiBku): \Illuminate\View\View
     {
         $transaksiBku->load('rkasItem.program', 'rkasItem.kodeRekening');
         $selectedRkas = null;
@@ -179,15 +219,15 @@ class TransaksiBkuController extends Controller
                 'text' => $item->no_urut . '. ' . $item->uraian,
                 'program' => $item->program?->nama,
                 'kode' => $item->kodeRekening?->kode,
-                'tarif' => (float) ($item->tarif ?? 0),
+                'tarif' => (float) $item->tarif,
                 'satuan' => $item->satuan,
-                'sisa' => (float) ($item->sisa ?? 0),
+                'sisa' => (float) ($item->jumlah - $item->transaksiBkus()->where('jenis', 'pengeluaran')->sum('jumlah')),
             ];
         }
         return view('transaksi-bku.edit', compact('transaksiBku', 'selectedRkas'));
     }
 
-    public function update(Request $request, TransaksiBku $transaksiBku)
+    public function update(Request $request, TransaksiBku $transaksiBku): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'rkas_item_id' => 'nullable|exists:rkas_item,id',
@@ -199,30 +239,35 @@ class TransaksiBkuController extends Controller
             'metode_pengadaan' => 'nullable|string|in:siplah,non_siplah',
             'uraian' => 'nullable|string',
         ]);
-        
-        $validated['bulan'] = (int) Carbon::parse($validated['tanggal'])->month;
-        $validated['tahun_anggaran_id'] = TahunAnggaran::where('status', true)->value('id');
 
-        if ($validated['rkas_item_id']) {
-            $rkasItem = RkasItem::find($validated['rkas_item_id']);
+        $tanggal = (string) $validated['tanggal'];
+        $jenis = (string) $validated['jenis'];
+        $jumlah = (float) $validated['jumlah'];
+        $rkasItemId = $validated['rkas_item_id'] ?? null;
+
+        $validated['bulan'] = (int) Carbon::parse($tanggal)->month;
+        $taRec2 = TahunAnggaran::where('status', true)->first(['id']);
+        $validated['tahun_anggaran_id'] = $taRec2 ? $taRec2->id : 0;
+
+        if (!empty($rkasItemId)) {
+            $rkasItem = RkasItem::find($rkasItemId);
             $validated['sumber_dana_id'] = $rkasItem?->sumber_dana_id;
         }
 
-        // Validasi: Sisa anggaran bulan berjalan
-        if ($validated['jenis'] == 'pengeluaran' && $validated['rkas_item_id']) {
-            $rkasItem = RkasItem::with('bulanRencana')->findOrFail($validated['rkas_item_id']);
-            
+        if ($jenis == 'pengeluaran' && !empty($rkasItemId)) {
+            $rkasItem = RkasItem::with('bulanRencana')->findOrFail($rkasItemId);
+
             $rencanaKumulatif = $rkasItem->bulanRencana->where('bulan', '<=', $validated['bulan'])->sum('rencana');
             $realisasiKumulatif = $rkasItem->transaksiBkus()
                                            ->where('id', '!=', $transaksiBku->id)
                                            ->where('jenis', 'pengeluaran')
                                            ->where('bulan', '<=', $validated['bulan'])
                                            ->sum('jumlah');
-            
+
             $sisaBulanBerjalan = $rencanaKumulatif - $realisasiKumulatif;
 
-            if ($validated['jumlah'] > $sisaBulanBerjalan) {
-                return back()->with('error', 'Gagal Update: Nominal Rp ' . number_format($validated['jumlah'], 0, ',', '.') . 
+            if ($jumlah > $sisaBulanBerjalan) {
+                return back()->with('error', 'Gagal Update: Nominal Rp ' . number_format($jumlah, 0, ',', '.') .
                                              ' melebihi sisa anggaran bulan berjalan (Rp ' . number_format($sisaBulanBerjalan, 0, ',', '.') . ').');
             }
         }
@@ -234,7 +279,7 @@ class TransaksiBkuController extends Controller
         return redirect()->route('transaksi-bku.index')->with('success', 'Transaksi berhasil diupdate.');
     }
 
-    public function destroy(TransaksiBku $transaksiBku)
+    public function destroy(TransaksiBku $transaksiBku): \Illuminate\Http\RedirectResponse
     {
         $transaksiBku->delete();
 
@@ -243,7 +288,7 @@ class TransaksiBkuController extends Controller
         return back()->with('success', 'Transaksi berhasil dihapus.');
     }
 
-    public function cetakKwitansi(TransaksiBku $transaksiBku)
+    public function cetakKwitansi(TransaksiBku $transaksiBku): \Illuminate\Http\Response
     {
         $transaksiBku->load('rkasItem.program.parent.parent', 'rkasItem.kodeRekening', 'sekolah');
         $profil = $transaksiBku->sekolah;
@@ -267,7 +312,8 @@ class TransaksiBkuController extends Controller
         return $pdf->stream($fileName);
     }
 
-    public function cetakKwitansiBatch(Request $request)
+    /** @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse */
+    public function cetakKwitansiBatch(Request $request): \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
     {
         $ids = $request->input('ids', []);
 

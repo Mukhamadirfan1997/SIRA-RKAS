@@ -8,10 +8,12 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\ImportLog;
 use App\Models\TahunAnggaran;
 use App\Jobs\ProcessRkasImport;
+use App\Exports\RkasTemplateExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ImportRkasController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\View\View
     {
         $tahunAnggaranAktif = TahunAnggaran::getActive();
         $logs = collect();
@@ -25,7 +27,7 @@ class ImportRkasController extends Controller
         return view('import-rkas.index', compact('tahunAnggaranAktif', 'logs'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $request->validate([
             'files' => 'required|array',
@@ -46,7 +48,7 @@ class ImportRkasController extends Controller
         $skippedFiles = [];
 
         foreach ($request->file('files', []) as $bulan => $file) {
-            if ($file && $file->isValid()) {
+            if ($file->isValid()) {
                 if ($file->getSize() > 5 * 1024 * 1024) {
                     $skippedFiles[] = $file->getClientOriginalName() . ' (max 5MB)';
                     continue;
@@ -85,7 +87,12 @@ class ImportRkasController extends Controller
         return back()->with('success', $message);
     }
 
-    public function status()
+    public function downloadTemplate(): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        return Excel::download(new RkasTemplateExport, 'template_import_rkas.xlsx');
+    }
+
+    public function status(): \Illuminate\Http\JsonResponse
     {
         if (!auth()->user()->sekolah_id) {
             return response()->json([]);

@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** @use HasFactory<\Database\Factories\KwitansiFactory> */
 class Kwitansi extends Model
 {
+    /** @use HasFactory<\Database\Factories\KwitansiFactory> */
     use HasFactory;
     protected $table = 'kwitansi';
 
@@ -36,11 +38,13 @@ class Kwitansi extends Model
         });
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\TransaksiBku, $this> */
     public function transaksiBku(): BelongsTo
     {
         return $this->belongsTo(TransaksiBku::class);
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\ProfilSekolah, $this> */
     public function sekolah(): BelongsTo
     {
         return $this->belongsTo(ProfilSekolah::class, 'sekolah_id');

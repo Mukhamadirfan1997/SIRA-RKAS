@@ -140,6 +140,23 @@
                         @enderror
                     </div>
 
+                    <div id="row_override" class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl hidden">
+                        <div class="flex items-start gap-3">
+                            <input type="checkbox" name="override_anggaran" id="override_anggaran" value="1" class="mt-1 rounded border-amber-300 text-amber-600 focus:ring-amber-500" {{ old('override_anggaran') ? 'checked' : '' }}>
+                            <div class="flex-1">
+                                <label for="override_anggaran" class="text-sm font-semibold text-amber-800 cursor-pointer">Override Sisa Anggaran</label>
+                                <p class="text-xs text-amber-600 mt-0.5">Centang jika ingin melanjutkan meskipun melebihi sisa anggaran. Wajib isi catatan di bawah.</p>
+                                <div id="row_override_note" class="mt-3 {{ old('override_anggaran') ? '' : 'hidden' }}">
+                                    <label for="override_note" class="block text-xs font-medium text-amber-700 mb-1">Catatan Override</label>
+                                    <textarea name="override_note" id="override_note" rows="2" class="form-input text-sm" placeholder="Sebutkan alasan override (contoh: ada SILPA bulan lalu, urgent)">{{ old('override_note') }}</textarea>
+                                    @error('override_note')
+                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
                         <a href="{{ route('transaksi-bku.index') }}" class="btn btn-secondary">
                             Batal
@@ -163,6 +180,9 @@
             const jenisSelect = document.getElementById('jenis');
             const tanggalInput = document.getElementById('tanggal');
             const noBuktiInput = document.getElementById('no_bukti');
+            const overrideCheckbox = document.getElementById('override_anggaran');
+            const overrideNoteRow = document.getElementById('row_override_note');
+            const overrideRow = document.getElementById('row_override');
 
             const rowRkas = document.getElementById('row_rkas_item');
             const rowKalkulator = document.getElementById('row_kalkulator');
@@ -270,10 +290,16 @@
                 kalkulasiJumlah();
                 if (data) {
                     showDetailCard(data);
+                    overrideRow.classList.remove('hidden');
                 } else {
                     hideDetailCard();
+                    overrideRow.classList.add('hidden');
                 }
             }
+
+            overrideCheckbox.addEventListener('change', function() {
+                overrideNoteRow.classList.toggle('hidden', !this.checked);
+            });
 
             function kalkulasiJumlah() {
                 var tarif = parseFloat(hargaInput.dataset.val) || 0;

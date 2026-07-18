@@ -15,8 +15,8 @@ class TelegramLogHandler extends AbstractProcessingHandler
 
         if (Level::Error->includes($level)) {
             $extra = $this->sanitize($record->extra);
-            $extra['url'] = request()?->fullUrl() ?? 'N/A';
-            $extra['user_email'] = auth()->user()?->email ?? auth()->user()?->name ?? 'Guest';
+            $extra['url'] = request()->fullUrl();
+            $extra['user_email'] = auth()->user()->email ?? auth()->user()->name ?? 'Guest';
 
             SendTelegramNotificationJob::dispatch(
                 level: $level->getName(),
@@ -27,12 +27,17 @@ class TelegramLogHandler extends AbstractProcessingHandler
         }
     }
 
+    /** @var array<int, string> */
     private array $sensitiveKeys = [
         'password', 'passwd', 'secret', 'token', 'api_key', 'api_token',
         'access_token', 'refresh_token', 'authorization', 'auth_token',
         'private_key', 'database_url', 'db_password',
     ];
 
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
     private function sanitize(array $data): array
     {
         $result = [];

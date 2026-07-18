@@ -3,11 +3,14 @@
 namespace App\Exports;
 
 use App\Models\TransaksiBku;
+use App\Models\TahunAnggaran;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithMapping;
 
+/** @implements WithMapping<TransaksiBku> */
 class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 {
     protected int $bulan;
@@ -21,10 +24,14 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
         $this->bulan = $bulan;
         $this->profil = $profil;
         $this->sekolahId = $sekolahId;
-        $this->tahunAnggaranId = $tahunAnggaranId ?? \App\Models\TahunAnggaran::where('status', true)->value('id');
+        $this->tahunAnggaranId = $tahunAnggaranId ?? (function () {
+            $ta = TahunAnggaran::where('status', true)->first(['id']);
+            return $ta ? $ta->id : 0;
+        })();
         $this->sumberDanaId = $sumberDanaId;
     }
 
+    /** @return Collection<int, TransaksiBku> */
     public function collection()
     {
         $query = TransaksiBku::with('rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja')
@@ -40,12 +47,13 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 
         $transaksis = $query->get();
 
-        $saldoAwal = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+        $saldoRecord = TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('bulan', '<', $this->bulan)
             ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
             ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
             ->selectRaw("COALESCE(SUM(CASE WHEN LOWER(jenis) = 'penerimaan' THEN jumlah ELSE -jumlah END), 0) as saldo")
-            ->value('saldo') ?? 0;
+            ->first();
+        $saldoAwal = $saldoRecord ? (float) $saldoRecord->saldo : 0;
 
         $saldo = $saldoAwal;
         foreach ($transaksis as $t) {
@@ -53,35 +61,36 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
             $t->saldo_berjalan = $saldo;
         }
 
-        $t = new \stdClass();
-        $t->kode = '';
-        $t->uraian = 'Saldo Awal';
-        $t->penerimaan = '';
-        $t->pengeluaran = '';
-        $t->saldo = $saldoAwal;
-        $t->is_header = true;
+        $t = new TransaksiBku();
+        $t->setAttribute('kode', '');
+        $t->setAttribute('uraian', 'Saldo Awal');
+        $t->setAttribute('penerimaan', '');
+        $t->setAttribute('pengeluaran', '');
+        $t->setAttribute('saldo', $saldoAwal);
+        $t->setAttribute('is_header', true);
         $transaksis->prepend($t);
 
-        $t2 = new \stdClass();
-        $t2->kode = '';
-        $t2->uraian = 'Saldo Akhir';
-        $t2->penerimaan = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+        $t2 = new TransaksiBku();
+        $t2->setAttribute('kode', '');
+        $t2->setAttribute('uraian', 'Saldo Akhir');
+        $t2->setAttribute('penerimaan', (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('bulan', $this->bulan)
             ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
             ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
-            ->where('jenis', 'penerimaan')->sum('jumlah');
-        $t2->pengeluaran = (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
+            ->where('jenis', 'penerimaan')->sum('jumlah'));
+        $t2->setAttribute('pengeluaran', (float) TransaksiBku::where('tahun_anggaran_id', $this->tahunAnggaranId)
             ->where('bulan', $this->bulan)
             ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('sekolah_id', $this->sekolahId))
             ->when($this->sumberDanaId, fn($q) => $q->where('sumber_dana_id', $this->sumberDanaId))
-            ->where('jenis', 'pengeluaran')->sum('jumlah');
-        $t2->saldo = $saldo;
-        $t2->is_header = true;
+            ->where('jenis', 'pengeluaran')->sum('jumlah'));
+        $t2->setAttribute('saldo', $saldo);
+        $t2->setAttribute('is_header', true);
         $transaksis->push($t2);
 
         return $transaksis;
     }
 
+    /** @return array<int, string> */
     public function headings(): array
     {
         return [
@@ -96,11 +105,12 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
         ];
     }
 
+    /** @return array<int, mixed> */
     public function map($row): array
     {
         if (isset($row->is_header)) {
             $label = $row->uraian;
-            $saldo = is_numeric($row->saldo) ? number_format($row->saldo, 0, ',', '.') : '';
+            $saldo = number_format($row->saldo, 0, ',', '.');
             return ['', '', '', '', $label, '', '', $saldo];
         }
 
@@ -118,6 +128,6 @@ class BkuExport implements FromCollection, WithHeadings, WithTitle, WithMapping
 
     public function title(): string
     {
-        return 'BKU Bulan ' . \Carbon\Carbon::create()->month($this->bulan)->translatedFormat('F');
+        return 'BKU Bulan ' . \Carbon\Carbon::createFromDate(null, $this->bulan, 1)->translatedFormat('F');
     }
 }

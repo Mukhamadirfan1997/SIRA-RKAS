@@ -18,9 +18,14 @@ use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    /** @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse */
     public function index(Request $request)
     {
-        if (auth()->user()->isAdminKecamatan()) {
+        $user = auth()->user();
+        if ($user === null) {
+            abort(403, 'Unauthenticated');
+        }
+        if ($user->isAdminKecamatan()) {
             return redirect()->route('dashboard.kecamatan');
         }
 
@@ -42,16 +47,22 @@ class DashboardController extends Controller
         $kodeRekenings = Cache::remember('master_kode_rekenings', 86400, fn() => MasterKodeRekening::all());
         $jenisBelanjas = Cache::remember('jenis_belanjas', 86400, fn() => JenisBelanja::all());
 
-        $bulan = $request->filled('bulan') ? (int) $request->bulan : null;
+        $bulanParam = $request->input('bulan');
+        $bulan = $request->filled('bulan') && (is_numeric($bulanParam) || is_string($bulanParam)) ? (int) $bulanParam : null;
         $totalRencana = 0;
         $totalRealisasi = 0;
         $chartLabels = [];
         $chartValues = [];
         $rkasItems = collect();
+        $trenBulanLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        $trenBulanValues = array_fill(0, 12, 0);
+        $transaksiBulanIni = 0;
+        $importStatus = collect();
+        $filteredIds = collect();
 
         if ($tahunAnggaranAktif) {
             $baseQuery = $tahunAnggaranAktif->rkasItems()->withoutGlobalScope('sekolah');
-            $sekolahId = auth()->user()->sekolah_id;
+            $sekolahId = $user->sekolah_id;
             if ($sekolahId) {
                 $baseQuery->where('rkas_item.sekolah_id', $sekolahId);
             }
@@ -75,21 +86,23 @@ class DashboardController extends Controller
                 $baseQuery->where('sumber_dana_id', $sumberDanaId);
             }
 
-            $dashVer = Cache::get('dash_ver_' . auth()->id(), 0);
-            $cacheKey = 'dashboard_user_' . auth()->id() . '_v' . $dashVer . '_' . md5(implode('|', [
-                $tahunAnggaranAktif->id, $bulan, $programId, $kodeRekeningId, $jenisBelanjaId, $sumberDanaId,
-            ]));
+            $dashVerRaw = Cache::get('dash_ver_' . $user->id, 0);
+            $dashVer = is_int($dashVerRaw) ? $dashVerRaw : 0;
+            $cacheKey = 'dashboard_user_' . $user->id . '_v' . $dashVer . '_' . md5(serialize([$tahunAnggaranAktif->id, $bulan, $programId, $kodeRekeningId, $jenisBelanjaId, $sumberDanaId]));
 
             $cached = Cache::get($cacheKey);
 
-            if ($cached) {
-                $totalRencana = $cached['totalRencana'];
-                $totalRealisasi = $cached['totalRealisasi'];
-                $chartLabels = $cached['chartLabels'];
-                $chartValues = $cached['chartValues'];
-                $trenBulanLabels = $cached['trenBulanLabels'];
-                $trenBulanValues = $cached['trenBulanValues'];
-                $transaksiBulanIni = $cached['transaksiBulanIni'];
+            if (is_array($cached)) {
+                $_rencana = $cached['totalRencana'] ?? 0;
+                $totalRencana = is_numeric($_rencana) ? (int) $_rencana : 0;
+                $_realisasi = $cached['totalRealisasi'] ?? 0;
+                $totalRealisasi = is_numeric($_realisasi) ? (int) $_realisasi : 0;
+                $chartLabels = isset($cached['chartLabels']) && is_array($cached['chartLabels']) ? $cached['chartLabels'] : [];
+                $chartValues = isset($cached['chartValues']) && is_array($cached['chartValues']) ? $cached['chartValues'] : [];
+                $trenBulanLabels = isset($cached['trenBulanLabels']) && is_array($cached['trenBulanLabels']) ? $cached['trenBulanLabels'] : [];
+                $trenBulanValues = isset($cached['trenBulanValues']) && is_array($cached['trenBulanValues']) ? $cached['trenBulanValues'] : [];
+                $_trx = $cached['transaksiBulanIni'] ?? 0;
+                $transaksiBulanIni = is_numeric($_trx) ? (int) $_trx : 0;
                 $importStatus = $cached['importStatus'];
             } else {
                 $filteredIds = $baseQuery->pluck('id');
@@ -133,7 +146,7 @@ class DashboardController extends Controller
                     ->groupBy('transaksi_bku.bulan')
                     ->pluck('total', 'bulan');
                 foreach ($byBulan as $b => $t) {
-                    if (isset($realisasiPerBulan[$b])) {
+                    if (isset($realisasiPerBulan[$b]) && is_numeric($t)) {
                         $realisasiPerBulan[$b] = (float) $t;
                     }
                 }
@@ -145,17 +158,17 @@ class DashboardController extends Controller
                     ->where('bulan', (int) Carbon::now()->month)
                     ->count();
 
-                $logs = ImportLog::where('tahun_anggaran_id', $tahunAnggaranAktif->id)
-                    ->get()
-                    ->groupBy('bulan')
-                    ->map(fn($group) => $group->sortByDesc('created_at')->first());
+                $importLogs = ImportLog::where('tahun_anggaran_id', $tahunAnggaranAktif->id)->get();
 
-                $importStatus = collect(range(1, 12))->map(fn($m) => (object) [
-                    'bulan' => $m,
-                    'nama' => Carbon::create()->month($m)->translatedFormat('F'),
-                    'status' => $logs->has($m) ? $logs[$m]->status : null,
-                    'baris_berhasil' => $logs->has($m) ? $logs[$m]->baris_berhasil : null,
-                ]);
+                $importStatus = collect(range(1, 12))->map(function ($m) use ($importLogs) {
+                    $latest = $importLogs->where('bulan', $m)->sortByDesc('created_at')->first();
+                    return (object) [
+                        'bulan' => $m,
+                        'nama' => Carbon::createFromDate(null, $m, 1)->translatedFormat('F'),
+                        'status' => $latest ? $latest->status : null,
+                        'baris_berhasil' => $latest ? $latest->baris_berhasil : null,
+                    ];
+                });
 
                 Cache::put($cacheKey, [
                     'totalRencana' => $totalRencana,
@@ -170,12 +183,12 @@ class DashboardController extends Controller
             }
 
             $rkasItems = (clone $baseQuery)
-                ->with(['program', 'kodeRekening.jenisBelanja', 'transaksiBkus' => function ($q) use ($bulan) {
+                ->with(['program', 'kodeRekening.jenisBelanja', 'transaksiBkus' => function (\Illuminate\Database\Eloquent\Relations\Relation $q) use ($bulan) {
                     $q->where('jenis', 'pengeluaran');
                     if ($bulan) {
                         $q->where('bulan', $bulan);
                     }
-                }, 'bulanRencana' => function ($q) use ($bulan) {
+                }, 'bulanRencana' => function (\Illuminate\Database\Eloquent\Relations\Relation $q) use ($bulan) {
                     if ($bulan) {
                         $q->where('bulan', $bulan);
                     }
@@ -184,13 +197,14 @@ class DashboardController extends Controller
                 ->paginate(50);
 
             foreach ($rkasItems as $item) {
-                $item->dynamic_realisasi = $item->transaksiBkus->sum('jumlah');
+                $_sum = $item->transaksiBkus->sum('jumlah');
+                $item->dynamic_realisasi = is_numeric($_sum) ? (float) $_sum : 0.0;
 
                 if ($bulan) {
                     $rencanaItem = $item->bulanRencana->first();
-                    $item->dynamic_rencana = $rencanaItem ? $rencanaItem->rencana : 0;
+                    $item->dynamic_rencana = $rencanaItem ? (float) $rencanaItem->rencana : 0.0;
                 } else {
-                    $item->dynamic_rencana = $item->jumlah;
+                    $item->dynamic_rencana = (float) $item->jumlah;
                 }
 
                 $item->dynamic_sisa = $item->dynamic_rencana - $item->dynamic_realisasi;
@@ -206,24 +220,13 @@ class DashboardController extends Controller
         $persentaseCapaian = $totalRencana > 0 ? round(($totalRealisasi / $totalRencana) * 100, 1) : 0;
 
         $recentTransaksi = collect();
-        if ($tahunAnggaranAktif && isset($filteredIds)) {
+        if ($tahunAnggaranAktif && $filteredIds->isNotEmpty()) {
             $recentTransaksi = TransaksiBku::with(['rkasItem.program', 'rkasItem.kodeRekening.jenisBelanja'])
                 ->whereIn('rkas_item_id', $filteredIds)
                 ->where('jenis', 'pengeluaran')
                 ->orderByDesc('created_at')
                 ->limit(5)
                 ->get();
-        }
-
-        if (!isset($trenBulanLabels)) {
-            $trenBulanLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-            $trenBulanValues = array_fill(0, 12, 0);
-        }
-        if (!isset($transaksiBulanIni)) {
-            $transaksiBulanIni = 0;
-        }
-        if (!isset($importStatus)) {
-            $importStatus = collect();
         }
 
         return view('dashboard', compact(
@@ -235,13 +238,15 @@ class DashboardController extends Controller
         ));
     }
 
-    public function kecamatan(Request $request)
+    public function kecamatan(Request $request): \Illuminate\View\View
     {
         $pageTitle = 'Dashboard Kecamatan';
-        $bulan = $request->get('bulan', date('n'));
-        $statusFilter = $request->get('status', '');
+        $bulanVal = $request->input('bulan', date('n'));
+        $bulan = is_numeric($bulanVal) ? (int) $bulanVal : (int) date('n');
+        $statusFilterVal = $request->input('status', '');
+        $statusFilter = is_string($statusFilterVal) ? $statusFilterVal : '';
         $tahunAnggaranAktif = TahunAnggaran::getActive();
-        $tahunInput = $request->get('tahun');
+        $tahunInput = $request->input('tahun');
         if ($tahunInput) {
             $tahunRecord = TahunAnggaran::where('tahun', $tahunInput)->first();
             if ($tahunRecord) {
@@ -255,19 +260,25 @@ class DashboardController extends Controller
         if ($tahunAnggaranAktif && $sekolahs->isNotEmpty()) {
             $cacheKey = 'dashboard_kecamatan_' . $tahunAnggaranAktif->id . '_' . $bulan;
             $cached = Cache::get($cacheKey);
+            $sekolahIds = $sekolahs->pluck('id')->toArray();
 
-            if ($cached && $cached['sekolah_ids'] === $sekolahs->pluck('id')->toArray()) {
-                $grandRencana = $cached['grandRencana'];
-                $grandRealisasi = $cached['grandRealisasi'];
-                $grandSisa = $cached['grandSisa'];
-                $avgCapaian = $cached['avgCapaian'];
-                $belumUploadCount = $cached['belumUploadCount'];
-                $chartLabels = $cached['chartLabels'];
-                $chartRealisasi = $cached['chartRealisasi'];
-                $chartRencana = $cached['chartRencana'];
-                $rencanaMap = $cached['rencanaMap'];
-                $realisasiMap = $cached['realisasiMap'];
-                $statusMap = $cached['statusMap'];
+            if (is_array($cached) && isset($cached['sekolah_ids']) && $cached['sekolah_ids'] === $sekolahIds) {
+                $_gr = $cached['grandRencana'] ?? 0;
+                $grandRencana = is_numeric($_gr) ? (float) $_gr : 0.0;
+                $_grea = $cached['grandRealisasi'] ?? 0;
+                $grandRealisasi = is_numeric($_grea) ? (float) $_grea : 0.0;
+                $_gs = $cached['grandSisa'] ?? 0;
+                $grandSisa = is_numeric($_gs) ? (float) $_gs : 0.0;
+                $_avg = $cached['avgCapaian'] ?? 0;
+                $avgCapaian = is_numeric($_avg) ? (float) $_avg : 0.0;
+                $_buc = $cached['belumUploadCount'] ?? 0;
+                $belumUploadCount = is_numeric($_buc) ? (int) $_buc : 0;
+                $chartLabels = isset($cached['chartLabels']) && is_array($cached['chartLabels']) ? $cached['chartLabels'] : [];
+                $chartRealisasi = isset($cached['chartRealisasi']) && is_array($cached['chartRealisasi']) ? $cached['chartRealisasi'] : [];
+                $chartRencana = isset($cached['chartRencana']) && is_array($cached['chartRencana']) ? $cached['chartRencana'] : [];
+                $rencanaMap = isset($cached['rencanaMap']) && is_array($cached['rencanaMap']) ? $cached['rencanaMap'] : [];
+                $realisasiMap = isset($cached['realisasiMap']) && is_array($cached['realisasiMap']) ? $cached['realisasiMap'] : [];
+                $statusMap = isset($cached['statusMap']) && is_array($cached['statusMap']) ? $cached['statusMap'] : [];
             } else {
                 $sekolahIds = $sekolahs->pluck('id')->toArray();
 
@@ -293,7 +304,7 @@ class DashboardController extends Controller
                     ->where('tahun_anggaran_id', $tahunAnggaranAktif->id)
                     ->orderBy('created_at', 'desc')
                     ->get(['sekolah_id', 'status']);
-                $statusPerSekolah = $allLogs->groupBy('sekolah_id')->map(fn($g) => $g->first()->status);
+                $statusPerSekolah = $allLogs->groupBy('sekolah_id')->map(fn($g) => $g->first()?->status);
 
                 $grandRencana = 0;
                 $grandRealisasi = 0;
@@ -306,9 +317,13 @@ class DashboardController extends Controller
                 $statusMap = [];
 
                 foreach ($sekolahs as $sekolah) {
-                    $rencana = (float) ($rencanaPerSekolah[$sekolah->id] ?? 0);
-                    $realisasi = (float) ($realisasiPerSekolah[$sekolah->id] ?? 0);
-                    $status = $statusPerSekolah[$sekolah->id] ?? 'Belum Upload';
+                    $_sid = $sekolah->id;
+                    $_rencanaRaw = $rencanaPerSekolah->get($_sid) ?? 0;
+                    $rencana = is_numeric($_rencanaRaw) ? (float) $_rencanaRaw : 0.0;
+                    $_realisasiRaw = $realisasiPerSekolah->get($_sid) ?? 0;
+                    $realisasi = is_numeric($_realisasiRaw) ? (float) $_realisasiRaw : 0.0;
+                    $_statusRaw = $statusPerSekolah->get($_sid);
+                    $status = is_string($_statusRaw) ? $_statusRaw : 'Belum Upload';
 
                     $rencanaMap[$sekolah->id] = $rencana;
                     $realisasiMap[$sekolah->id] = $realisasi;
@@ -346,11 +361,14 @@ class DashboardController extends Controller
             }
 
             foreach ($sekolahs as $sekolah) {
-                $sekolah->total_rencana = $rencanaMap[$sekolah->id] ?? 0;
-                $sekolah->total_realisasi = $realisasiMap[$sekolah->id] ?? 0;
-                $sekolah->status_import = $statusMap[$sekolah->id] ?? 'Belum Upload';
-                $sekolah->sisa = $sekolah->total_rencana - $sekolah->total_realisasi;
-                $sekolah->persentase = $sekolah->total_rencana > 0 ? ($sekolah->total_realisasi / $sekolah->total_rencana) * 100 : 0;
+                $_sid = $sekolah->id;
+                $_r = isset($rencanaMap[$_sid]) && is_numeric($rencanaMap[$_sid]) ? (float) $rencanaMap[$_sid] : 0.0;
+                $sekolah->total_rencana = $_r;
+                $_rr = isset($realisasiMap[$_sid]) && is_numeric($realisasiMap[$_sid]) ? (float) $realisasiMap[$_sid] : 0.0;
+                $sekolah->total_realisasi = $_rr;
+                $sekolah->status_import = isset($statusMap[$_sid]) && is_string($statusMap[$_sid]) ? $statusMap[$_sid] : 'Belum Upload';
+                $sekolah->sisa = $_r - $_rr;
+                $sekolah->persentase = $_r > 0 ? ($_rr / $_r) * 100 : 0;
             }
         } else {
             $grandRencana = 0;

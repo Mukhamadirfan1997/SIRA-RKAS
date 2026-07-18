@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\ProfilSekolah> */
 class ProfilSekolahFactory extends Factory
 {
     public function definition(): array
@@ -13,7 +14,7 @@ class ProfilSekolahFactory extends Factory
             'nama' => fake()->company(),
             'alamat' => fake()->address(),
             'kabupaten' => fake()->city(),
-            'provinsi' => fake()->state(),
+            'provinsi' => fake()->city(),
             'nama_kepsek' => fake()->name(),
             'nip_kepsek' => fake()->numerify('####################'),
             'nama_bendahara' => fake()->name(),

@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ExportController extends Controller
 {
+    /** @return \Symfony\Component\HttpFoundation\StreamedResponse */
     public function download(ExportJob $exportJob)
     {
         if ($exportJob->user_id !== auth()->id()) {
@@ -24,7 +25,7 @@ class ExportController extends Controller
         return Storage::disk('public')->download($exportJob->file_path, $exportJob->filename);
     }
 
-    public function status(ExportJob $exportJob)
+    public function status(ExportJob $exportJob): \Illuminate\Http\JsonResponse
     {
         if ($exportJob->user_id !== auth()->id()) {
             abort(403);

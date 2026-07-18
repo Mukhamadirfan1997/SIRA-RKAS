@@ -14,8 +14,12 @@ class MasterProgramImport implements WithMultipleSheets
 {
     public int $importedCount = 0;
     public int $skippedCount  = 0;
+    /** @var array<int, string> */
     private array $rowErrors  = [];
 
+    /**
+     * @return array<int, MasterProgramSheetImport>
+     */
     public function sheets(): array
     {
         return [
@@ -23,12 +27,15 @@ class MasterProgramImport implements WithMultipleSheets
         ];
     }
 
+    /**
+     * @return array<int, string>
+     */
     public function getAllErrors(): array
     {
         return $this->rowErrors;
     }
 
-    public function addError($error) {
+    public function addError(string $error): void {
         $this->rowErrors[] = $error;
     }
 }
@@ -37,14 +44,15 @@ class MasterProgramSheetImport implements ToCollection, WithHeadingRow, SkipsOnE
 {
     use SkipsErrors;
 
-    private $parent;
+    private ?MasterProgramImport $parent;
 
     public function __construct(MasterProgramImport $parent)
     {
         $this->parent = $parent;
     }
 
-    public function collection(Collection $rows)
+    /** @param Collection<int, array<string, mixed>> $rows */
+    public function collection(Collection $rows): void
     {
         foreach ($rows as $index => $row) {
             // Header dari sheet KEGIATAN PRD (di-lowercase oleh excel_maatwebsite): 

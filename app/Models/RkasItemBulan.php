@@ -6,8 +6,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $rkas_item_id
+ * @property int $bulan
+ * @property float $rencana
+ * @use HasFactory<\Database\Factories\RkasItemBulanFactory>
+ */
 class RkasItemBulan extends Model
 {
+    /** @use HasFactory<\Database\Factories\RkasItemBulanFactory> */
     use HasFactory;
     protected $table = 'rkas_item_bulan';
 
@@ -17,6 +25,7 @@ class RkasItemBulan extends Model
         'rencana'
     ];
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\RkasItem, $this> */
     public function rkasItem(): BelongsTo
     {
         return $this->belongsTo(RkasItem::class);

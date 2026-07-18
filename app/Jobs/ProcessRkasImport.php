@@ -13,27 +13,23 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\RkasItem;
+use App\Models\AuditLog;
+use App\Observers\RkasItemObserver;
 use Illuminate\Support\Facades\Log;
 
 class ProcessRkasImport implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $importLogId;
-    public $filePath;
+    public int $importLogId;
+    public string $filePath;
 
-    /**
-     * Create a new job instance.
-     */
-    public function __construct($importLogId, $filePath)
+    public function __construct(int $importLogId, string $filePath)
     {
         $this->importLogId = $importLogId;
         $this->filePath = $filePath;
     }
 
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         $log = ImportLog::find($this->importLogId);
@@ -42,45 +38,41 @@ class ProcessRkasImport implements ShouldQueue
         $log->update(['status' => 'processing']);
 
         try {
-            // ===== IDEMPOTENSI: Hapus data lama untuk sekolah + tahun + bulan ini =====
-            // Ini memastikan re-import bulan yang sama tidak menumpuk duplikat
+            // Idempotensi: hapus Rencana bulan yang diimpor saja
             DB::transaction(function () use ($log) {
-                // Cari rkas_item milik sekolah + tahun ini
                 $rkasIds = RkasItem::where('sekolah_id', $log->sekolah_id)
                                     ->where('tahun_anggaran_id', $log->tahun_anggaran_id)
                                     ->pluck('id');
 
                 if ($rkasIds->isNotEmpty()) {
-                    // Hapus rencana bulan lama untuk bulan yang diimpor
                     \App\Models\RkasItemBulan::whereIn('rkas_item_id', $rkasIds)
                                              ->where('bulan', $log->bulan)
                                              ->delete();
-
-                    // Hapus rkas_item yang tidak lagi punya rencana di bulan MANAPUN
-                    // (artinya item ini hanya eksis karena import bulan ini sebelumnya)
-                    $itemsToDelete = RkasItem::whereIn('id', $rkasIds)
-                                             ->whereDoesntHave('bulanRencana')
-                                             ->pluck('id');
-                    if ($itemsToDelete->isNotEmpty()) {
-                        RkasItem::whereIn('id', $itemsToDelete)->delete();
-                    }
                 }
             });
 
-            // Mulai import
-            Excel::import(new RkasImport(
-                $log->tahun_anggaran_id,
-                $log->sekolah_id,
-                $log->bulan,
-                $log->sumber_dana_id,
-                $log->id
-            ), $this->filePath);
+            // Set user context untuk observer audit
+            RkasItemObserver::$importUserId = $log->uploaded_by;
+
+            try {
+                // Jalankan import
+                Excel::import(new RkasImport(
+                    $log->tahun_anggaran_id,
+                    $log->sekolah_id,
+                    $log->bulan,
+                    $log->sumber_dana_id,
+                    $log->id
+                ), $this->filePath);
+            } finally {
+                // Reset user context (harus tetap di-reset walau exception)
+                RkasItemObserver::$importUserId = null;
+            }
 
             $log->refresh();
 
             if ($log->baris_berhasil === 0) {
                 $err = $log->error_detail ?? [];
-                $err[] = "Tidak ada data yang berhasil diimpor. Periksa format file Excel — pastikan kolom sesuai template (No Urut di kolom A, Kode Rekening di kolom B, Uraian di kolom J, Jumlah di kolom T).";
+                $err[] = "Tidak ada data yang berhasil diimpor. Periksa format file Excel — pastikan kolom sesuai template (No Urut, Kode Rekening, Kode Program, Uraian, Volume, Satuan, Tarif, Jumlah).";
                 $log->update([
                     'status' => 'failed',
                     'error_detail' => $err,
@@ -94,13 +86,21 @@ class ProcessRkasImport implements ShouldQueue
                     'total_baris' => $log->baris_berhasil + $log->baris_gagal,
                     'finished_at' => now(),
                 ]);
+
+                AuditLog::create([
+                    'user_id' => $log->uploaded_by,
+                    'sekolah_id' => $log->sekolah_id,
+                    'tabel' => 'import_rkas',
+                    'aksi' => 'import',
+                    'data_baru' => [
+                        'bulan' => $log->bulan,
+                        'baris_berhasil' => $log->baris_berhasil,
+                        'total_baris' => $log->total_baris,
+                    ],
+                ]);
             }
 
-            // Hapus file asli setelah selesai
-            if ($log->file_path) {
-                Storage::disk('local')->delete($log->file_path);
-                $log->update(['file_path' => null]);
-            }
+            $this->cleanupFile($log);
 
         } catch (\Exception $e) {
             Log::error("Import gagal: " . $e->getMessage());
@@ -108,9 +108,18 @@ class ProcessRkasImport implements ShouldQueue
             $err[] = "System Error: " . $e->getMessage();
             $log->update([
                 'status' => 'failed',
-                'error_detail' => $err,
                 'finished_at' => now(),
             ]);
+
+            $this->cleanupFile($log);
+        }
+    }
+
+    protected function cleanupFile(?ImportLog $log): void
+    {
+        if ($log->file_path) {
+            Storage::disk('local')->delete($log->file_path);
+            $log->updateQuietly(['file_path' => null]);
         }
     }
 }

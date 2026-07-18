@@ -18,7 +18,9 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
     protected ?int $sekolahId;
     protected ?int $tahunAnggaranId;
     protected ?int $sumberDanaId;
+    /** @var array<int, string> */
     protected array $bulanNames;
+    /** @var array<int, int> */
     protected array $bulanMonths;
 
     public function __construct(int $kuartal, string $namaSekolah, ?int $sekolahId = null, ?int $tahunAnggaranId = null, ?int $sumberDanaId = null)
@@ -32,11 +34,12 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
         $startMonth = ($kuartal - 1) * 3 + 1;
         $this->bulanMonths = [$startMonth, $startMonth + 1, $startMonth + 2];
         $this->bulanNames = array_map(
-            fn($m) => \Carbon\Carbon::create()->month($m)->translatedFormat('F'),
+            fn($m) => \Carbon\Carbon::createFromDate(null, $m, 1)->translatedFormat('F'),
             $this->bulanMonths
         );
     }
 
+    /** @return array<int, array<int, mixed>> */
     public function array(): array
     {
         $tahunAnggaran = $this->tahunAnggaranId
@@ -59,14 +62,14 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
             ->where('transaksi_bku.jenis', 'pengeluaran')
             ->whereIn('transaksi_bku.bulan', $months)
             ->where('ri_sub.tahun_anggaran_id', $tahunAnggaran->id)
-            ->when($this->sekolahId, fn($q) => $q->where('ri_sub.sekolah_id', $this->sekolahId))
+            ->when($this->sekolahId, fn($q) => $q->withoutGlobalScope('sekolah')->where('transaksi_bku.sekolah_id', $this->sekolahId))
             ->when($this->sumberDanaId, fn($q) => $q->where('ri_sub.sumber_dana_id', $this->sumberDanaId))
             ->groupBy('transaksi_bku.rkas_item_id');
 
         $query = RkasItem::with(['kodeRekening.jenisBelanja', 'program'])
-            ->select('rkas_item.*')
-            ->leftJoinSub($realisasiSub, 'tb', fn($j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'))
-            ->where('rkas_item.tahun_anggaran_id', $tahunAnggaran->id);
+            ->select('rkas_item.*');
+        $query->leftJoinSub($realisasiSub, 'tb', fn(\Illuminate\Database\Query\JoinClause $j) => $j->on('rkas_item.id', '=', 'tb.rkas_item_id'));
+        $query->where('rkas_item.tahun_anggaran_id', $tahunAnggaran->id);
 
         if ($this->sekolahId) {
             $query->withoutGlobalScope('sekolah')->where('rkas_item.sekolah_id', $this->sekolahId);
@@ -77,11 +80,12 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
         }
 
         $rkasItems = $query->get()
-            ->map(function ($item) use ($months) {
+            ->map(function (RkasItem $item) use ($months) {
                 $realisasiPerBulan = [];
                 $totalRealisasi = 0;
+                $fields = [$item->m0, $item->m1, $item->m2];
                 foreach ($months as $i => $bulan) {
-                    $r = (float) ($item->{"m{$i}"} ?? 0);
+                    $r = isset($fields[$i]) ? (float) $fields[$i] : 0.0;
                     $realisasiPerBulan[$bulan] = $r;
                     $totalRealisasi += $r;
                 }
@@ -91,7 +95,7 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
             });
 
         $grouped = $rkasItems->groupBy(
-            fn($item) => $item->kodeRekening?->jenisBelanja?->nama ?? 'Tidak Terkategori'
+            fn(RkasItem $item): string => $item->kodeRekening->jenisBelanja->nama ?? 'Tidak Terkategori'
         );
 
         $rows = [];
@@ -122,7 +126,7 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
             foreach ($items->sortBy('kodeRekening.kode') as $item) {
                 $row = [
                     $no,
-                    $item->kodeRekening?->kode ?? '-',
+                    $item->kodeRekening->kode ?? '-',
                     $item->uraian,
                 ];
                 foreach ($months as $bulan) {
@@ -132,7 +136,7 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
                 $rows[] = $row;
 
                 foreach ($months as $bulan) {
-                    $subTotalPerBulan[$bulan] += $item->realisasi_per_bulan[$bulan] ?? 0;
+                    $subTotalPerBulan[$bulan] += isset($item->realisasi_per_bulan[$bulan]) ? (float) $item->realisasi_per_bulan[$bulan] : 0.0;
                 }
                 $subTotalAll += $item->total_realisasi;
                 $no++;
@@ -163,6 +167,7 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
         return $rows;
     }
 
+    /** @return array<int, string> */
     public function headings(): array
     {
         $cols = ['No', 'Kode Rekening', 'Uraian Anggaran'];
@@ -178,16 +183,17 @@ class RekapKuartalExport implements FromArray, WithHeadings, WithTitle, ShouldAu
         return 'Rekap Tribulan ' . $this->kuartal;
     }
 
+    /** @return array<string, int> */
     public function columnWidths(): array
     {
         return [
-            1 => 5,
-            2 => 18,
-            3 => 35,
-            4 => 18,
-            5 => 18,
-            6 => 18,
-            7 => 18,
+            'A' => 5,
+            'B' => 18,
+            'C' => 35,
+            'D' => 18,
+            'E' => 18,
+            'F' => 18,
+            'G' => 18,
         ];
     }
 }

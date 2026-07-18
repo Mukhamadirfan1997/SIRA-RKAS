@@ -6,8 +6,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property string $kode
+ * @property string $nama
+ * @use HasFactory<\Database\Factories\SumberDanaFactory>
+ */
 class SumberDana extends Model
 {
+    /** @use HasFactory<\Database\Factories\SumberDanaFactory> */
     use HasFactory;
     protected $table = 'sumber_dana';
 
@@ -16,6 +23,7 @@ class SumberDana extends Model
         'nama'
     ];
 
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\RkasItem, $this> */
     public function rkasItems(): HasMany
     {
         return $this->hasMany(RkasItem::class, 'sumber_dana_id');

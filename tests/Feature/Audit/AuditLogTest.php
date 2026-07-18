@@ -7,6 +7,7 @@ use App\Models\ProfilSekolah;
 use App\Models\RkasItem;
 use App\Models\TransaksiBku;
 use App\Models\User;
+use App\Observers\RkasItemObserver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,7 +30,7 @@ class AuditLogTest extends TestCase
         ]);
 
         $log = AuditLog::where('tabel', 'rkas_item')->where('aksi', 'create')->first();
-        $this->assertNotNull($log->data_baru);
+        $this->assertNotEmpty($log->data_baru);
         $this->assertEquals($item->id, $log->data_baru['id']);
     }
 
@@ -83,6 +84,9 @@ class AuditLogTest extends TestCase
 
     public function test_no_audit_log_when_unauthenticated(): void
     {
+        auth()->logout();
+        RkasItemObserver::$importUserId = null;
+
         $sekolah = ProfilSekolah::factory()->create();
         $item = RkasItem::factory()->create(['sekolah_id' => $sekolah->id]);
 

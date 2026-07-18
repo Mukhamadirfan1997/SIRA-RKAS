@@ -7,8 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * @property int $id
+ * @property int $tahun
+ * @property bool $status
+ * @use HasFactory<\Database\Factories\TahunAnggaranFactory>
+ */
 class TahunAnggaran extends Model
 {
+    /** @use HasFactory<\Database\Factories\TahunAnggaranFactory> */
     use HasFactory;
     protected $table = 'tahun_anggaran';
 
@@ -34,11 +41,13 @@ class TahunAnggaran extends Model
         );
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\RkasItem, $this> */
     public function rkasItems(): HasMany
     {
         return $this->hasMany(RkasItem::class);
     }
 
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\ImportLog, $this> */
     public function importLogs(): HasMany
     {
         return $this->hasMany(ImportLog::class);

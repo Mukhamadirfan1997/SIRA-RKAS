@@ -8,17 +8,21 @@ use Illuminate\Http\Request;
 
 class RkasItemController extends Controller
 {
-    public function select2(Request $request)
+    /**
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function select2(Request $request): \Illuminate\Http\JsonResponse
     {
-        $search = $request->get('q');
-        $excludeIds = $request->get('exclude', []);
+        $searchRaw = $request->input('q');
+        $search = is_string($searchRaw) ? $searchRaw : '';
+        $excludeIds = $request->input('exclude', []);
 
         $query = RkasItem::with('program', 'kodeRekening', 'sumberDana')
-            ->withSum(['transaksiBkus as realisasi_sum' => fn($q) => $q->where('jenis', 'pengeluaran')], 'jumlah')
+            ->withSum(['transaksiBkus as realisasi_sum' => fn(\Illuminate\Database\Eloquent\Relations\Relation $q) => $q->where('jenis', 'pengeluaran')], 'jumlah')
             ->orderBy('no_urut');
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
+        if ($search !== '') {
+            $query->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($search) {
                 $q->where('no_urut', 'LIKE', "%{$search}%")
                   ->orWhere('uraian', 'LIKE', "%{$search}%");
             });
@@ -30,15 +34,15 @@ class RkasItemController extends Controller
 
         $items = $query->paginate(20);
 
-        $results = $items->map(fn($item) => [
+        $results = $items->map(function (RkasItem $item): array { return [
             'id' => $item->id,
-            'text' => $item->no_urut . '. ' . $item->uraian . ' — ' . ($item->sumberDana?->kode ?? '-') . ' (Sisa: Rp ' . number_format($item->jumlah - ($item->realisasi_sum ?? 0), 0, ',', '.') . ')',
+            'text' => $item->no_urut . '. ' . $item->uraian . ' — ' . ($item->sumberDana->kode ?? '-') . ' (Sisa: Rp ' . number_format($item->jumlah - $item->realisasi_sum, 0, ',', '.') . ')',
             'tarif' => $item->tarif,
-            'program' => $item->program?->nama ?? '-',
-            'kode' => $item->kodeRekening?->kode ?? '-',
+            'program' => $item->program->nama ?? '-',
+            'kode' => $item->kodeRekening->kode ?? '-',
             'satuan' => $item->satuan ?? '',
-            'sisa' => $item->jumlah - ($item->realisasi_sum ?? 0),
-        ]);
+            'sisa' => $item->jumlah - $item->realisasi_sum,
+        ]; });
 
         return response()->json([
             'results' => $results,

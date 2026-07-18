@@ -7,10 +7,11 @@ use App\Imports\MasterProgramImport;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class MasterProgramController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request): \Illuminate\View\View
     {
         $query = MasterProgram::with('parent');
 
@@ -27,14 +28,22 @@ class MasterProgramController extends Controller
 
 
 
-    public function import(Request $request)
+    public function import(Request $request): \Illuminate\Http\RedirectResponse
     {
         $request->validate([
             'file' => 'required|mimes:xlsx,xls,csv',
         ]);
 
-        $import = new MasterProgramImport;
-        Excel::import($import, $request->file('file'));
+        try {
+            $import = new MasterProgramImport;
+            Excel::import($import, $request->file('file'));
+        } catch (\Throwable $e) {
+            Log::error('Gagal import master program: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return back()->with('error', 'Gagal membaca file. Pastikan file yang diupload adalah file Excel yang valid.');
+        }
 
         Cache::forget('master_programs');
 
@@ -48,19 +57,19 @@ class MasterProgramController extends Controller
         if (!empty($errors)) {
             return back()
                 ->with('warning', $msg)
-                ->with('import_errors', array_slice($errors, 0, 10)); // max 10 error ditampilkan
+                ->with('import_errors', array_slice($errors, 0, 10));
         }
 
         return back()->with('success', $msg);
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
         $parentPrograms = MasterProgram::all();
         return view('master-program.create', compact('parentPrograms'));
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'kode' => 'required|unique:master_program,kode',
@@ -78,13 +87,13 @@ class MasterProgramController extends Controller
         return redirect()->route('master-program.index')->with('success', 'Master Program berhasil ditambahkan.');
     }
 
-    public function edit(MasterProgram $masterProgram)
+    public function edit(MasterProgram $masterProgram): \Illuminate\View\View
     {
         $parentPrograms = MasterProgram::where('id', '!=', $masterProgram->id)->get();
         return view('master-program.edit', compact('masterProgram', 'parentPrograms'));
     }
 
-    public function update(Request $request, MasterProgram $masterProgram)
+    public function update(Request $request, MasterProgram $masterProgram): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'kode' => 'required|unique:master_program,kode,' . $masterProgram->id,
@@ -102,7 +111,7 @@ class MasterProgramController extends Controller
         return redirect()->route('master-program.index')->with('success', 'Master Program berhasil diupdate.');
     }
 
-    public function destroy(MasterProgram $masterProgram)
+    public function destroy(MasterProgram $masterProgram): \Illuminate\Http\RedirectResponse
     {
         $masterProgram->delete();
         Cache::forget('master_programs');

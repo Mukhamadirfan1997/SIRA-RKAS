@@ -21,7 +21,7 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -53,9 +53,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('master-program', MasterProgramController::class);
         Route::post('master-program/import', [MasterProgramController::class, 'import'])->name('master-program.import');
         
-        Route::resource('master-kode-rekening', MasterKodeRekeningController::class);
         Route::get('master-kode-rekening/download-template', [MasterKodeRekeningController::class, 'downloadTemplate'])->name('master-kode-rekening.download-template');
         Route::post('master-kode-rekening/import', [MasterKodeRekeningController::class, 'import'])->name('master-kode-rekening.import');
+        Route::resource('master-kode-rekening', MasterKodeRekeningController::class)->except(['show']);
 
         Route::get('laporan/{sekolah}/bku', [LaporanController::class, 'adminBku'])->name('admin.laporan.bku');
         Route::get('laporan/{sekolah}/rekap-rekening', [LaporanController::class, 'adminRekapRekening'])->name('admin.laporan.rekap-rekening');
@@ -80,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['role:sekolah'])->group(function() {
         Route::get('import-rkas', [ImportRkasController::class, 'index'])->name('import-rkas.index');
         Route::post('import-rkas', [ImportRkasController::class, 'store'])->name('import-rkas.store');
+        Route::get('import-rkas/download-template', [ImportRkasController::class, 'downloadTemplate'])->name('import-rkas.download-template');
         Route::get('import-rkas/status', [ImportRkasController::class, 'status'])->name('import-rkas.status');
 
         Route::resource('transaksi-bku', TransaksiBkuController::class);

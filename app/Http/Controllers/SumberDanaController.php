@@ -7,18 +7,18 @@ use Illuminate\Http\Request;
 
 class SumberDanaController extends Controller
 {
-    public function index()
+    public function index(): \Illuminate\View\View
     {
         $sumberDanas = SumberDana::paginate(50);
         return view('sumber-dana.index', compact('sumberDanas'));
     }
 
-    public function create()
+    public function create(): \Illuminate\View\View
     {
         return view('sumber-dana.create');
     }
 
-    public function store(Request $request)
+    public function store(Request $request): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'kode' => 'required|unique:sumber_dana,kode',
@@ -30,12 +30,12 @@ class SumberDanaController extends Controller
         return redirect()->route('sumber-dana.index')->with('success', 'Sumber Dana berhasil ditambahkan.');
     }
 
-    public function edit(SumberDana $sumberDana)
+    public function edit(SumberDana $sumberDana): \Illuminate\View\View
     {
         return view('sumber-dana.edit', compact('sumberDana'));
     }
 
-    public function update(Request $request, SumberDana $sumberDana)
+    public function update(Request $request, SumberDana $sumberDana): \Illuminate\Http\RedirectResponse
     {
         $validated = $request->validate([
             'kode' => 'required|unique:sumber_dana,kode,' . $sumberDana->id,
@@ -47,7 +47,7 @@ class SumberDanaController extends Controller
         return redirect()->route('sumber-dana.index')->with('success', 'Sumber Dana berhasil diupdate.');
     }
 
-    public function destroy(SumberDana $sumberDana)
+    public function destroy(SumberDana $sumberDana): \Illuminate\Http\RedirectResponse
     {
         $sumberDana->delete();
         return back()->with('success', 'Sumber Dana berhasil dihapus.');
